@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Success Modal animations ──────────────────────────────── */
+@keyframes firmiu-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes firmiu-modal-in {
+  from { opacity: 0; transform: scale(0.82) translateY(24px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+
+@keyframes firmiu-circle-draw {
+  from { stroke-dashoffset: 201; }
+  to   { stroke-dashoffset: 0;   }
+}
+
+@keyframes firmiu-check-draw {
+  from { stroke-dashoffset: 49; }
+  to   { stroke-dashoffset: 0;  }
+}
+
+@keyframes firmiu-countdown {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@keyframes firmiu-text-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
