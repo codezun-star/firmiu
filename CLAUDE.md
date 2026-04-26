@@ -26,7 +26,7 @@ Dominio: **firmiu.com** · Deploy: **Vercel** (pendiente) · Base de datos: **Su
 | Firma en PDF | pdf-lib | ✅ |
 | Canvas de firma | react-signature-canvas | ✅ |
 | Toasts | Sistema propio por eventos (`toast.ts` + `Toaster.tsx`) | ✅ |
-| Pagos | Paddle | ⏳ No implementado |
+| Pagos | Paddle | ✅ Checkout + webhook implementados |
 | Deploy | Vercel | ⏳ No configurado |
 | Lenguaje | TypeScript strict | ✅ |
 
@@ -50,7 +50,7 @@ RESEND_FROM_EMAIL=noreply@firmiu.com
 NEXT_PUBLIC_APP_URL=http://localhost:3000   # en producción: https://firmiu.com
 NEXT_PUBLIC_SITE_URL=http://localhost:3000  # usado en OAuth redirectTo
 
-# Paddle (no implementado aún)
+# Paddle
 NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=...
 PADDLE_API_KEY=...
 PADDLE_WEBHOOK_SECRET=...
@@ -69,83 +69,101 @@ firmiu/
 │   └── en.json               # Traducciones EN
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx        # Root layout (metadataBase → firmiu.com)
+│   │   ├── layout.tsx        # Root layout (metadataBase → firmiu.com, fallback SEO)
 │   │   ├── globals.css       # Tailwind + Inter + keyframes de animaciones de modales
 │   │   ├── sitemap.ts        # Sitemap XML (todas las rutas públicas ES+EN)
 │   │   ├── robots.ts         # robots.txt (bloquea /dashboard/ y /firmar/)
 │   │   ├── actions/
 │   │   │   ├── auth.ts       # registerAction, loginAction, logoutAction, googleLoginAction
-│   │   │   ├── documents.ts  # uploadDocumentAction → retorna {success, destinatario, titulo}
+│   │   │   ├── documents.ts  # uploadDocumentAction, hideDocumentAction
 │   │   │   ├── sign.ts       # signDocumentAction → retorna {success, redirectTo} | {errorKey}
-│   │   │   ├── contacts.ts   # addContactAction, deleteContactAction
+│   │   │   ├── contacts.ts   # addContactAction, hideContactAction
 │   │   │   └── settings.ts   # updateProfileAction, updatePasswordAction
+│   │   ├── api/
+│   │   │   ├── cron/reset-docs/route.ts  # Cron mensual que resetea contador de documentos
+│   │   │   └── paddle/webhook/route.ts   # Webhook Paddle → actualiza tabla suscripciones
 │   │   ├── auth/
 │   │   │   └── callback/
-│   │   │       └── route.ts  # OAuth callback → exchangeCodeForSession → /dashboard
+│   │   │       └── route.ts  # OAuth callback → lee cookie firmiu_pending_plan → /checkout o /dashboard
 │   │   └── [locale]/
 │   │       ├── layout.tsx         # Locale layout (html lang + NextIntlClientProvider + Toaster)
 │   │       ├── page.tsx           # Landing con generateMetadata + JSON-LD + FAQ
 │   │       ├── login/
-│   │       │   ├── page.tsx
+│   │       │   ├── page.tsx       # generateMetadata completo (canonical, OG, hreflang, keywords)
 │   │       │   └── LoginForm.tsx
 │   │       ├── register/
-│   │       │   ├── page.tsx
-│   │       │   └── RegisterForm.tsx
-│   │       ├── recuperar/page.tsx       # Solicitar reset de contraseña por email
-│   │       ├── nueva-contrasena/page.tsx # Formulario para ingresar nueva contraseña
-│   │       ├── terminos/page.tsx         # Términos de servicio (12 secciones, i18n ES+EN)
-│   │       ├── privacidad/page.tsx       # Política de privacidad (10 secciones, i18n ES+EN)
+│   │       │   ├── page.tsx       # generateMetadata completo; acepta ?plan= para checkout flow
+│   │       │   └── RegisterForm.tsx  # hidden input plan para checkout post-registro
+│   │       ├── checkout/
+│   │       │   ├── page.tsx           # Server: valida ?plan=, requiere sesión, pasa props a client
+│   │       │   └── CheckoutClient.tsx # Client: abre Paddle tras 1.5s; redirige tras éxito/cierre
+│   │       ├── recuperar/page.tsx       # noindex — reset de contraseña por email
+│   │       ├── nueva-contrasena/page.tsx # noindex — formulario nueva contraseña
+│   │       ├── nosotros/page.tsx         # generateMetadata completo (canonical, OG, hreflang, keywords)
+│   │       ├── contacto/page.tsx         # generateMetadata completo
+│   │       ├── terminos/page.tsx         # 13 secciones + generateMetadata completo + link a /reembolsos
+│   │       ├── privacidad/page.tsx       # 10 secciones + generateMetadata completo
+│   │       ├── reembolsos/page.tsx       # 4 secciones + generateMetadata completo (nueva)
 │   │       ├── dashboard/
-│   │       │   ├── layout.tsx            # Layout con DashboardSidebar
-│   │       │   ├── page.tsx              # Panel con empty state (pendiente real)
+│   │       │   ├── layout.tsx            # DashboardNav + PendingPlanChecker (limpia cookie si plan activo)
+│   │       │   ├── page.tsx              # Estadísticas reales: enviados, pendientes, firmados, sparkline
 │   │       │   ├── nuevo/
 │   │       │   │   ├── page.tsx          # Acepta searchParams ?nombre= y ?correo=
 │   │       │   │   └── NuevoForm.tsx     # Muestra SuccessModal en state.success
-│   │       │   ├── documentos/page.tsx   # ⚠️ UI con mock data (sin query real)
+│   │       │   ├── documentos/
+│   │       │   │   ├── page.tsx          # Query real + paginación (10/pág) + .eq("oculto",false)
+│   │       │   │   └── DocumentosClient.tsx  # Tabs estado, hide inline, paginación
 │   │       │   ├── contactos/
-│   │       │   │   ├── page.tsx          # Server component — query a tabla contactos
-│   │       │   │   └── ContactosClient.tsx  # CRUD con toasts, búsqueda, avatares
+│   │       │   │   ├── page.tsx          # Query real + paginación + .eq("oculto",false)
+│   │       │   │   └── ContactosClient.tsx  # CRUD con toasts, búsqueda, hide, paginación
 │   │       │   ├── cuenta/
-│   │       │   │   ├── page.tsx          # Server — datos reales del usuario
+│   │       │   │   ├── page.tsx          # Server — datos reales del usuario + plan actual
 │   │       │   │   └── SettingsClient.tsx   # Perfil, contraseña, planes con toasts
-│   │       │   └── firmas/page.tsx       # Placeholder vacío (pendiente)
+│   │       │   └── firmas/
+│   │       │       ├── page.tsx          # Query real + paginación + .eq("oculto",false)
+│   │       │       └── FirmasClient.tsx  # Tabla/cards, hide inline, timezone Tegucigalpa
 │   │       └── firmar/
 │   │           ├── [token]/
 │   │           │   ├── page.tsx          # Server wrapper
 │   │           │   └── FirmarClient.tsx  # Canvas, OTP, toast errors, SuccessModal
-│   │           └── exito/page.tsx        # Confirmación post-firma (destino del modal)
+│   │           └── exito/page.tsx        # noindex — confirmación post-firma + descarga
 │   ├── components/
 │   │   ├── Logo.tsx
 │   │   ├── Navbar.tsx
-│   │   ├── Footer.tsx
+│   │   ├── Footer.tsx                    # Links: Privacidad · Términos · Reembolsos
 │   │   ├── DashboardSidebar.tsx
 │   │   ├── DashboardNav.tsx
 │   │   ├── GoogleButton.tsx
 │   │   ├── SubmitButton.tsx
 │   │   ├── DownloadSignedButton.tsx
-│   │   ├── Toaster.tsx           # Contenedor de toasts (bottom-right, 4 tipos, auto-dismiss)
-│   │   ├── SuccessModal.tsx      # Modal animado de éxito con countdown y auto-redirect
+│   │   ├── PendingPlanChecker.tsx        # Client silent: limpia cookie/localStorage si plan activo
+│   │   ├── Toaster.tsx
+│   │   ├── SuccessModal.tsx
 │   │   └── landing/
-│   │       ├── Hero.tsx          # Strings decorativas del mockup usan t(mock_*)
+│   │       ├── Hero.tsx
 │   │       ├── HowItWorks.tsx
 │   │       ├── Features.tsx
 │   │       ├── InContext.tsx
-│   │       ├── Pricing.tsx
+│   │       ├── Pricing.tsx               # Escribe cookie firmiu_pending_plan antes de /register
 │   │       ├── Testimonials.tsx
-│   │       ├── FAQ.tsx           # Acordeón <details>/<summary> (crawlable sin JS)
+│   │       ├── FAQ.tsx
 │   │       └── CtaBanner.tsx
 │   ├── lib/
-│   │   ├── toast.ts              # Dispatcher de toasts por window.CustomEvent
+│   │   ├── toast.ts
+│   │   ├── paddle.ts                     # getPaddle(), openCheckout(); dispara firmiu:paddle-success/closed
+│   │   ├── security.ts                   # escapeHtml, isValidEmail, isValidUUID, sanitizeText
 │   │   └── supabase/
-│   │       ├── client.ts         # createBrowserClient → Client Components
-│   │       ├── server.ts         # createServerClient → Server Components, Actions, Handlers
-│   │       └── admin.ts          # createClient con service role → bypasea RLS
+│   │       ├── client.ts
+│   │       ├── server.ts
+│   │       └── admin.ts
 │   ├── i18n.ts
-│   └── middleware.ts
+│   └── middleware.ts                     # PROTECTED: /dashboard, /nueva-contrasena, /checkout
 ├── supabase/
 │   └── migrations/
-│       ├── 001_initial_schema.sql  # Schema principal (ejecutado)
-│       └── 003_contacts.sql        # Tabla contactos + RLS (⚠️ ejecutar en Supabase)
+│       ├── 001_initial_schema.sql
+│       ├── 003_contacts.sql              # ⚠️ ejecutar en Supabase SQL Editor
+│       ├── 005_suscripciones.sql         # tabla suscripciones (plan, estado, paddle_*)
+│       └── 006_soft_delete.sql          # ⚠️ ejecutar: columna oculto en documentos/firmas/contactos
 ├── next.config.js
 ├── tailwind.config.ts
 ├── .env.example
@@ -165,42 +183,49 @@ firmiu/
 - **Sin librerías UI** — todo Tailwind puro
 
 ### Keyframes en globals.css
-Animaciones del `SuccessModal` y `Toaster` definidas en `src/app/globals.css`:
 - `firmiu-overlay-in` — backdrop fade in
 - `firmiu-modal-in` — card escala + sube con spring easing
-- `firmiu-circle-draw` — círculo SVG se dibuja (stroke-dashoffset 201→0)
-- `firmiu-check-draw` — checkmark SVG se dibuja (stroke-dashoffset 49→0)
-- `firmiu-countdown` — barra de progreso inferior (scaleX 1→0)
+- `firmiu-circle-draw` — círculo SVG (stroke-dashoffset 201→0)
+- `firmiu-check-draw` — checkmark SVG (stroke-dashoffset 49→0)
+- `firmiu-countdown` — barra de progreso (scaleX 1→0)
 - `firmiu-text-in` — texto fade + sube
 
 ### Regla de i18n
-**Nunca** hardcodear textos en componentes. Siempre agregar en `messages/es.json` y `messages/en.json`. Claves actuales:
+**Nunca** hardcodear textos en componentes. Siempre agregar en `messages/es.json` y `messages/en.json`.
 
 ```
-nav.*                  → navbar y sidebar
-home.hero.*            → hero landing (incluye mock_* para strings decorativas)
-home.how_it_works.*    → sección cómo funciona
-home.features_section.*→ cards de características
-home.testimonials.*    → testimonios
-home.in_context.*      → estadísticas
-home.cta_banner.*      → banner final
-home.features.*        → sección visual upload/sign/download
-home.pricing.*         → precios y planes
-home.faq.*             → FAQ (title, subtitle, q1-q8, a1-a8)
-auth.errors.*          → mensajes de error (8 claves)
-auth.register.*        → formulario de registro
-auth.login.*           → formulario de login
+nav.*                    → navbar y sidebar
+home.hero.*              → hero landing (mock_* para strings decorativas)
+home.how_it_works.*      → sección cómo funciona
+home.features_section.*  → cards de características
+home.testimonials.*      → testimonios
+home.in_context.*        → estadísticas
+home.cta_banner.*        → banner final
+home.features.*          → sección visual upload/sign/download
+home.pricing.*           → precios y planes
+home.faq.*               → FAQ (title, subtitle, q1-q8, a1-a8)
+auth.errors.*            → mensajes de error (8 claves)
+auth.register.*          → formulario de registro (+ meta_title, meta_description, meta_keywords)
+auth.login.*             → formulario de login (+ meta_title, meta_description, meta_keywords)
 auth.google_button / auth.or_continue_with / auth.panel.*
-dashboard.*            → panel principal
-documents.*            → lista de documentos
-nuevo.*                → subir nuevo documento (incluye nuevo.errors.*, modal_title, modal_subtitle)
-sign.*                 → página pública de firma (incluye sign.modal_title, sign.modal_subtitle)
-sign_success.*         → página post-firma
-contacts_page.*        → módulo de contactos (incluye toast_added, toast_deleted)
-settings.*             → módulo de cuenta/configuración (incluye planes)
-terms.*                → términos de servicio (s1_title..s12_title, s1_body..s12_body)
-privacy.*              → política de privacidad (s1..s10, security_badge, security_desc)
-footer.*
+auth.forgot_password.*   → recuperar contraseña
+dashboard.*              → panel principal
+documents.*              → lista de documentos (incluye cancel, hide_confirm, hide)
+nuevo.*                  → subir nuevo documento (incluye nuevo.errors.*, modal_title, modal_subtitle)
+sign.*                   → página pública de firma
+sign_success.*           → página post-firma
+contacts_page.*          → módulo de contactos (incluye hide_confirm, hide, pagination.*)
+firmas_page.*            → módulo de firmas (incluye cancel, hide, hide_confirm, pagination.*)
+settings.*               → módulo de cuenta/configuración (incluye planes)
+pagination.*             → previous, next, page_of, showing (reutilizado en documentos/contactos/firmas)
+terms.*                  → términos de servicio (s1..s13 + meta_description, meta_keywords)
+privacy.*                → política de privacidad (s1..s10 + meta_description, meta_keywords)
+refund.*                 → política de reembolsos (s1..s4 + meta_keywords + contact_label/email)
+about.*                  → página nosotros (+ meta_keywords)
+contact.*                → página contacto (+ meta_keywords)
+footer.*                 → footer (incluye refunds)
+checkout.*               → página checkout (loading, go_dashboard, error)
+pending_plan.*           → loader de suscripción pendiente
 ```
 
 ---
@@ -213,122 +238,115 @@ footer.*
 - next-intl: español sin prefijo (default), inglés con `/en`
 - Tres clientes Supabase: browser, server y admin (service role)
 - Middleware combinado: refresca sesión + protege rutas + maneja locales
+- Rutas protegidas: `/dashboard`, `/nueva-contrasena`, `/checkout`
 
-### ✅ Sistema de toasts (`src/lib/toast.ts` + `src/components/Toaster.tsx`)
-- `toast.success()`, `toast.error()`, `toast.warning()`, `toast.info()` — disponibles en cualquier Client Component sin Provider
+### ✅ Sistema de toasts
+- `toast.success()`, `toast.error()`, `toast.warning()`, `toast.info()`
 - Dispatcher via `window.dispatchEvent(new CustomEvent("firmiu:toast", {...}))`
-- `Toaster` montado en el layout del locale — bottom-right, siempre visible sin scroll
-- 4 tipos con colores distintos, auto-dismiss diferenciado (error=5s, warning=4.5s, success/info=3.5-4s)
-- Máximo 3 toasts simultáneos, botón X para cerrar manualmente
-- Usado en: `FirmarClient`, `ContactosClient`, `SettingsClient`
+- 4 tipos, auto-dismiss diferenciado, máx 3 simultáneos, botón X
 
-### ✅ Modal de éxito (`src/components/SuccessModal.tsx`)
+### ✅ Modal de éxito (`SuccessModal.tsx`)
 - Props: `title`, `subtitle`, `redirectTo`, `delayMs` (default 3200ms)
-- Backdrop con `backdrop-blur-[3px]` + card animada con spring easing
-- SVG: círculo verde animado (r=32, dashoffset 201→0) seguido del checkmark (dashoffset 49→0)
-- Barra de progreso inferior (countdown) que lleva a cero y navega automáticamente
-- Montado en `NuevoForm` (tras enviar documento) y `FirmarClient` (tras firmar)
+- SVG animado (círculo + checkmark), barra countdown, auto-redirect
 
 ### ✅ Autenticación completa
-- Registro email/contraseña via `registerAction`
-- Login email/contraseña via `loginAction`
-- Login con Google OAuth via `googleLoginAction` → callback en `/auth/callback/route.ts`
-- Logout via `logoutAction`
+- Registro email/contraseña, Login email/contraseña, Google OAuth
 - Recuperar contraseña: `/recuperar` + `/nueva-contrasena`
-- Protección de rutas: `/dashboard` requiere sesión activa
-- 8 claves de error mapeadas en ES+EN
+- Protección de rutas con middleware
+- `auth/callback/route.ts` lee cookie `firmiu_pending_plan` → redirige a `/checkout?plan=...`
+
+### ✅ Checkout / Pagos con Paddle
+- `Pricing.tsx`: escribe `firmiu_pending_plan` en cookie + localStorage antes de ir a `/register`
+- `registerAction`: si hay sesión + plan → redirect a `/checkout?plan=...`
+- `auth/callback`: si hay cookie pending_plan → redirect a `/checkout?plan=...`
+- `/checkout/page.tsx`: valida plan, requiere sesión, pasa priceId/email/userId
+- `CheckoutClient.tsx`: spinner + abre Paddle tras 1.5s; escucha `firmiu:paddle-success` y `firmiu:paddle-closed` → redirect a /dashboard; fallback link a 8s
+- `PendingPlanChecker.tsx`: limpia cookie/localStorage si el plan ya está activo
+- `paddle/webhook/route.ts`: verifica firma Paddle, actualiza tabla `suscripciones` (activated/cancelled/past_due)
+- Tabla `suscripciones`: `owner_id`, `plan`, `estado`, `paddle_subscription_id`, `paddle_customer_id`, `current_period_end`
 
 ### ✅ Base de datos
-- Tabla `documentos` con RLS (owners ven sus filas; lectura pública por token)
-- Tabla `firmas` (solo service role escribe)
-- Enum `estado_documento` ('pendiente' | 'visto' | 'firmado')
-- Storage buckets: `pdfs-originales` y `pdfs-firmados` (privados)
-- Tabla `contactos` con RLS — **⚠️ requiere ejecutar `003_contacts.sql` en Supabase SQL Editor**
+- Tabla `documentos` con RLS + columna `oculto boolean default false`
+- Tabla `firmas` + columna `oculto boolean default false`
+- Tabla `contactos` + columna `oculto boolean default false`
+- Tabla `suscripciones` con datos Paddle
+- **⚠️ Pendiente ejecutar en Supabase**: `003_contacts.sql` y `006_soft_delete.sql`
 
 ### ✅ Upload de documentos (`/dashboard/nuevo`)
-`uploadDocumentAction` en orden:
-1. Valida PDF (requerido, tipo .pdf, max 20 MB) y destinatario (nombre + email)
-2. Sube PDF a `pdfs-originales/{owner_id}/{docId}.pdf` → admin client
-3. Inserta fila en `documentos` → server client con sesión (respeta RLS)
-4. Genera código 4 dígitos e inserta en `firmas` → admin client
-5. Envía email al destinatario con Resend (enlace `/firmar/[token]` + código visual)
-6. Retorna `{ success: true, destinatario, titulo }` → cliente muestra `SuccessModal`
-7. `SuccessModal` redirige a `/dashboard/documentos` tras 3.2 s
-
-La página `/dashboard/nuevo` acepta `?nombre=` y `?correo=` en la URL (prellenado desde contactos).
-El email falla silenciosamente si `RESEND_API_KEY` no es válida — el documento se crea igualmente.
-En desarrollo, los datos de firma se loguean en la terminal (URL, token, código).
+1. Valida PDF (max 20 MB) + destinatario
+2. Sube a `pdfs-originales/{owner_id}/{docId}.pdf`
+3. Inserta en `documentos`
+4. Genera código 4 dígitos, inserta en `firmas`
+5. Envía email con Resend (falla silenciosamente si key no es válida)
+6. Retorna `{ success: true }` → `SuccessModal` → `/dashboard/documentos`
 
 ### ✅ Firma de documentos (`/firmar/[token]`)
-`signDocumentAction` en orden:
-1. Busca documento por token (query pública, sin sesión)
-2. Verifica que no esté ya firmado
-3. Valida código de 4 dígitos contra `firmas.codigo_verificacion`
-4. Captura IP del request headers (IPs privadas/loopback → `null`)
-5. Fetch de geolocalización a ip-api.com (ciudad, región, país, timezone, VPN/proxy) con timeout 3s
-6. Descarga PDF original desde Storage → admin client
-7. Estampa firma PNG con pdf-lib via `addSignaturePage()`:
-   - **La página nueva usa las mismas dimensiones que la primera página del PDF original** (no A4 fijo)
-   - Contiene: firma centrada en cuadro naranja, tabla de auditoría con firmante, correo, fecha/hora (en timezone del firmante), IP (o "No disponible"), dispositivo, ubicación, nombre del documento
-8. Sube PDF firmado a `pdfs-firmados/{owner_id}/{docId}.pdf` → admin client (upsert)
-9. Actualiza `documentos.estado = 'firmado'` y `url_pdf_firmado`
-10. Actualiza `firmas.verificado = true`, ip, user_agent, navegador, OS, ubicación, VPN
-11. Retorna `{ success: true, redirectTo }` → cliente muestra `SuccessModal`
-12. `SuccessModal` redirige a `/firmar/exito?token=...` tras 3.2 s
+1. Busca por token (público), verifica no firmado, valida código
+2. IP capture + geolocalización (ip-api.com, timeout 3s)
+3. Descarga PDF original, estampa firma con pdf-lib en **página nueva con dimensiones del original**
+4. Sube PDF firmado, actualiza `documentos` y `firmas`
+5. Retorna `{ success: true, redirectTo }` → `SuccessModal` → `/firmar/exito?token=...`
 
-El timezone lo aporta el navegador del firmante (`Intl.DateTimeFormat().resolvedOptions().timeZone`) y se pasa al server action. El geo.timezone tiene prioridad si la IP es pública.
+### ✅ Dashboard — módulos con datos reales
+**Todos los módulos del dashboard comparten:**
+- Paginación server-side: PAGE_SIZE=10, `?page=N`, `.range(from, to)`, `count: 'exact'`
+- Soft delete: `.eq("oculto", false)` + botón "Ocultar" con confirmación inline
+- `router.refresh()` tras mutaciones (useTransition)
 
-### ✅ Módulo de contactos (`/dashboard/contactos`)
-- Tabla `contactos` en Supabase con RLS (cada user ve solo los suyos)
-- CRUD: agregar (modal), eliminar (confirmación inline)
-- Búsqueda en tiempo real por nombre o correo
-- Avatares con colores deterministas (hash del nombre → 8 colores)
-- Botón "Enviar documento" → `/dashboard/nuevo?nombre=X&correo=Y`
-- Toasts de éxito/error en add y delete
-- Si la migración 003 no está aplicada, muestra empty state sin crashear
+**`/dashboard`** — estadísticas reales: enviados/pendientes/firmados del mes + sparkline + 5 recientes
 
-### ✅ Módulo de cuenta (`/dashboard/cuenta`)
-- Lee datos reales: `nombre` (`user_metadata`), `email`, `isGoogle` (`app_metadata.provider`)
-- Contador de documentos del mes actual (query real a Supabase)
-- Editar nombre via `updateProfileAction` → `supabase.auth.updateUser`
-- Cambio de contraseña via `updatePasswordAction` (min 6 chars, confirmación)
-- Usuarios Google OAuth ven mensaje info en lugar del form de contraseña
-- Display de planes (Free/Starter/Pro/Business) con barra de progreso
-- Toasts de éxito/error en todas las operaciones
-- Zona de peligro: eliminar cuenta (placeholder, sin lógica real)
+**`/dashboard/documentos`** — query real + tabs por estado (conteos exactos con 3 queries paralelas) + hide inline
 
-### ✅ Páginas legales
-- `/terminos` — 12 secciones, i18n completo ES+EN
-- `/privacidad` — 10 secciones con íconos únicos, i18n completo ES+EN
-- Links desde `/register` con `target="_blank"`
+**`/dashboard/contactos`** — CRUD + búsqueda + avatares deterministas + "Enviar documento" → /nuevo?nombre=&correo=
 
-### ✅ SEO completo
-- `generateMetadata` en `page.tsx`: title, description, keywords, canonical, hreflang (`es`, `en`, `x-default`), Open Graph (`es_419`/`en_US`), Twitter Card
-- JSON-LD: `Organization`, `WebSite`, `SoftwareApplication`, `FAQPage` (8 preguntas — rich snippets)
-- `sitemap.ts` — todas las rutas públicas en ES+EN con prioridades
+**`/dashboard/firmas`** — historial de firmas con auditoría + timezone `America/Tegucigalpa`
+
+**`/dashboard/cuenta`** — datos reales, plan actual desde tabla `suscripciones`, toasts
+
+### ✅ Páginas legales y públicas
+- `/terminos` — 13 secciones + link a /reembolsos en s13
+- `/privacidad` — 10 secciones con íconos únicos
+- `/reembolsos` — 4 secciones (nueva) — política de reembolsos y cancelaciones
+- `/nosotros` — misión, para quién, valores
+- `/contacto` — email directo
+
+### ✅ SEO agresivo — todas las páginas públicas
+**Landing** (`/`): title, description, keywords, canonical, hreflang (es/en/x-default), OG (es_419/en_US), Twitter Card, JSON-LD (Organization + WebSite + SoftwareApplication + FAQPage), robots: index
+
+**Páginas indexables** (login, register, terminos, privacidad, reembolsos, nosotros, contacto): `generateMetadata` completo con title, description, keywords i18n, canonical, hreflang alternates, OG (title/description/url/siteName/locale/type), Twitter Card, robots: index
+
+**Páginas noindex** (recuperar, nueva-contrasena, firmar/exito): `robots: { index: false, follow: false }`
+
+**Infraestructura SEO:**
+- `sitemap.ts` — ES+EN para todas las rutas públicas con prioridades (/ → 1.0, /register → 0.9, /login → 0.8, /nosotros → 0.6, /contacto → 0.6, /reembolsos → 0.5, /terminos → 0.4, /privacidad → 0.4)
 - `robots.ts` — bloquea `/dashboard/` y `/firmar/`
+- `metadataBase` en root layout → `https://firmiu.com`
 - `FAQ.tsx` — acordeón `<details>/<summary>` (indexable sin JS)
 
 ### ✅ Estado de páginas
 | Ruta | Estado |
 |---|---|
 | `/` | Landing completa: SEO, FAQ, JSON-LD |
-| `/login` | Funcional (email + Google) |
-| `/register` | Funcional (email + Google + links legales) |
-| `/recuperar` | Funcional |
-| `/nueva-contrasena` | Funcional |
-| `/terminos` | Completo i18n ES+EN |
-| `/privacidad` | Completo i18n ES+EN |
-| `/dashboard` | Empty state (sin datos reales) |
-| `/dashboard/nuevo` | **Funcional** — upload, email, SuccessModal |
-| `/dashboard/documentos` | ⚠️ Mock data — sin query real |
-| `/dashboard/contactos` | **Funcional** — CRUD + toasts |
-| `/dashboard/cuenta` | **Funcional** — datos reales, toasts |
-| `/dashboard/firmas` | Placeholder vacío |
-| `/firmar/[token]` | **Funcional** — canvas, OTP, pdf-lib, SuccessModal |
-| `/firmar/exito` | UI estática |
+| `/login` | Funcional + SEO completo |
+| `/register` | Funcional + SEO completo + checkout flow |
+| `/checkout` | Funcional — Paddle checkout |
+| `/recuperar` | Funcional, noindex |
+| `/nueva-contrasena` | Funcional, noindex |
+| `/nosotros` | Completo + SEO |
+| `/contacto` | Completo + SEO |
+| `/terminos` | 13 secciones + SEO + link a /reembolsos |
+| `/privacidad` | 10 secciones + SEO |
+| `/reembolsos` | 4 secciones + SEO |
+| `/dashboard` | Estadísticas reales |
+| `/dashboard/nuevo` | Funcional — upload, email, SuccessModal |
+| `/dashboard/documentos` | Funcional — query real + paginación + soft delete |
+| `/dashboard/contactos` | Funcional — CRUD + paginación + soft delete |
+| `/dashboard/cuenta` | Funcional — datos reales + plan Paddle |
+| `/dashboard/firmas` | Funcional — historial + paginación + soft delete |
+| `/firmar/[token]` | Funcional — canvas, OTP, pdf-lib, SuccessModal |
+| `/firmar/exito` | Funcional — descarga PDF firmado, noindex |
 
-**Build actual: 34 páginas sin errores.**
+**Build actual: 44 páginas, 0 errores.**
 
 ---
 
@@ -346,9 +364,10 @@ create table documentos (
   nombre_destinatario  text not null,
   correo_destinatario  text not null,
   estado               estado_documento not null default 'pendiente',
-  url_pdf_original     text,           -- path: pdfs-originales/{owner_id}/{id}.pdf
-  url_pdf_firmado      text,           -- path: pdfs-firmados/{owner_id}/{id}.pdf
+  url_pdf_original     text,
+  url_pdf_firmado      text,
   token                uuid not null unique default gen_random_uuid(),
+  oculto               boolean not null default false,  -- soft delete (migración 006)
   creado_en            timestamptz not null default now()
 );
 
@@ -363,66 +382,71 @@ create table firmas (
   sistema_operativo    text,
   ubicacion            text,
   codigo_verificacion  text,
-  verificado           boolean not null default false
+  verificado           boolean not null default false,
+  oculto               boolean not null default false   -- soft delete (migración 006)
 );
 
--- CONTACTOS (migración 003 — ejecutar manualmente en Supabase SQL Editor)
+-- CONTACTOS (migración 003)
 create table if not exists contactos (
   id         uuid primary key default gen_random_uuid(),
   owner_id   uuid not null references auth.users(id) on delete cascade,
   nombre     text not null,
   correo     text not null,
   empresa    text,
+  oculto     boolean not null default false,            -- soft delete (migración 006)
   creado_en  timestamptz not null default now(),
   unique (owner_id, correo)
 );
-alter table contactos enable row level security;
-create policy "users manage their own contacts" on contactos for all
-  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- SUSCRIPCIONES Paddle (migración 005)
+create table suscripciones (
+  id                       uuid primary key default gen_random_uuid(),
+  owner_id                 uuid not null references auth.users(id) on delete cascade,
+  plan                     text not null,               -- 'starter' | 'pro' | 'business'
+  estado                   text not null default 'pending', -- 'active' | 'cancelled' | 'past_due' | 'pending'
+  paddle_subscription_id   text unique,
+  paddle_customer_id       text,
+  current_period_end       timestamptz,
+  creado_en                timestamptz not null default now(),
+  unique (owner_id)
+);
 ```
 
-**Buckets de Storage:**
-- `pdfs-originales` — privado, upload con admin client
-- `pdfs-firmados` — privado, upload con admin client, lectura con URL firmada (24h)
+**Migraciones pendientes de ejecutar en Supabase SQL Editor:**
+- `003_contacts.sql` — tabla contactos + RLS
+- `006_soft_delete.sql` — columna `oculto` en documentos, firmas, contactos
 
-**RLS:**
-- `documentos`: owners leen/escriben sus filas; lectura pública filtrada por token
-- `firmas`: deny-all para clientes normales; solo service role opera
-- `contactos`: cada usuario gestiona solo los suyos
+**Buckets de Storage:**
+- `pdfs-originales` — privado, admin client
+- `pdfs-firmados` — privado, admin client, URL firmada 24h
 
 ---
 
 ## Lo que falta antes de producción
 
-### 1. Lista de documentos real — `/dashboard/documentos` ← PRÓXIMO PASO
-- Query real a Supabase: `documentos` filtrado por `owner_id` del usuario autenticado
-- Badge de estado con color (pendiente=gris, visto=azul, firmado=verde)
-- Botón "Ver" → URL firmada del PDF original (admin client, 1h)
-- Botón "Descargar" → URL firmada del PDF firmado (solo si `estado === 'firmado'`)
-
-### 2. Panel principal — `/dashboard`
-- Estadísticas reales: total enviados, pendientes, firmados
-- Documentos recientes (últimos 5) con estado y acciones rápidas
-
-### 3. Módulo de firmas — `/dashboard/firmas`
-- Historial de documentos firmados con datos de auditoría
-- Actualmente placeholder vacío
-
-### 4. Email con dominio propio
+### 1. Email con dominio propio
 - Configurar dominio `firmiu.com` en Resend
 - Cambiar `from: "onboarding@resend.dev"` → `from: "noreply@firmiu.com"` en `documents.ts`
 - Agregar `RESEND_API_KEY` real en `.env.local` y en Vercel
 
-### 5. Pagos con Paddle
-- Checkout para planes Starter ($9), Pro ($19), Business ($39)
-- Webhook para activar/desactivar suscripción en Supabase
-- Limitar documentos por plan (Free: 3/mes) — validar en `uploadDocumentAction`
-- Eliminar cuenta real en zona de peligro (`/dashboard/cuenta`)
+### 2. Límites de plan en upload
+- Validar en `uploadDocumentAction`: Free = 3 docs/mes, Starter = 50, Pro = 200, Business = ilimitado
+- Consultar tabla `suscripciones` + contador mensual en `documentos`
+- Mostrar error con CTA a upgrade si se excede el límite
 
-### 6. Deploy en Vercel
+### 3. Eliminar cuenta real
+- `deleteAccountAction` en `settings.ts` — eliminar user de Supabase Auth + cancelar suscripción Paddle
+- Zona de peligro en `/dashboard/cuenta` actualmente es placeholder
+
+### 4. Deploy en Vercel
 - Configurar variables de entorno en Vercel dashboard
 - Cambiar `NEXT_PUBLIC_APP_URL` y `NEXT_PUBLIC_SITE_URL` a `https://firmiu.com`
 - Verificar que OAuth de Google tenga `https://firmiu.com/auth/callback` como redirect autorizado
+- Agregar `RESEND_API_KEY`, `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET` reales
+
+### 5. Ejecutar migraciones pendientes en Supabase
+- `003_contacts.sql`
+- `006_soft_delete.sql`
 
 ---
 
@@ -446,7 +470,7 @@ npm run lint     # ESLint
 | Bypasear RLS (storage, tabla firmas, sign) | `src/lib/supabase/admin.ts` | `createAdminClient()` |
 
 ### Reglas de desarrollo
-- **Textos**: SIEMPRE en `messages/es.json` y `messages/en.json`. Nunca hardcodear.
+- **Textos**: SIEMPRE en `messages/es.json` y `messages/en.json`. Nunca hardcodear. Esto incluye meta_title, meta_description y meta_keywords de SEO.
 - **Server Actions**: `"use server"` en la primera línea. Las nuevas acciones van en `src/app/actions/`.
 - **Formularios con errores**: `useFormState` (React 18, de `react-dom`). Submit usa `<SubmitButton>` con `useFormStatus`.
 - **Mutaciones sin formulario**: `useTransition` + `router.refresh()` — NO `useFormState`.
@@ -456,8 +480,12 @@ npm run lint     # ESLint
 - **getTranslations vs useTranslations**: `getTranslations` (async) en Server Components; `useTranslations` en Client Components.
 - **Middleware**: combina Supabase + protección de rutas + next-intl en un solo archivo. No separar.
 - **Variable de entorno**: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (nunca `ANON_KEY`).
-- **Prefijo de locale**: español sin prefijo; inglés con `/en`. El helper `getPrefix(locale)` retorna `""` para ES y `"/en"` para EN.
-- **`addSignaturePage()`** en `sign.ts`: agrega una página nueva con las **mismas dimensiones que la primera página del PDF original** (`pdfDoc.getPages()[0].getSize()`). NUNCA dibujar sobre páginas existentes.
-- **`signDocumentAction`**: retorna `SignResult { errorKey, success?, redirectTo? }`. Ya NO llama a `redirect()` directamente.
-- **Build**: `npm run build` debe pasar sin errores. Build actual genera 34 páginas.
+- **Prefijo de locale**: español sin prefijo; inglés con `/en`. El helper `const prefix = locale === "es" ? "" : "/en"` se usa en todos los generateMetadata y redirects.
+- **`addSignaturePage()`** en `sign.ts`: agrega página nueva con las mismas dimensiones que la primera página del PDF original. NUNCA dibujar sobre páginas existentes.
+- **`signDocumentAction`**: retorna `SignResult { errorKey, success?, redirectTo? }`. NO llama a `redirect()` directamente.
+- **Soft delete**: SIEMPRE filtrar con `.eq("oculto", false)` en queries del dashboard. Las acciones hide* usan `update({ oculto: true })` + `revalidatePath`.
+- **Paginación**: PAGE_SIZE = 10. Parámetro URL `?page=N`. Query con `.range(from, to)` y `{ count: 'exact' }`. Server component lee `searchParams.page`.
+- **Checkout Paddle**: el flow es Pricing → cookie + /register?plan= → registerAction → /checkout?plan= (o auth/callback → /checkout?plan=). `CheckoutClient` escucha `firmiu:paddle-success` y `firmiu:paddle-closed`.
+- **SEO en páginas nuevas**: toda página pública debe tener `generateMetadata` con title, description, keywords (desde i18n), canonical, hreflang languages (es/en), OG, Twitter, robots.
+- **Build**: `npm run build` debe pasar sin errores. Build actual genera 44 páginas.
 - **`NEXT_PUBLIC_APP_URL`**: usado en metadata SEO (canonical, OG, sitemap, links de email). En producción debe ser `https://firmiu.com`.
