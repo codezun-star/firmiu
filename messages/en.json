@@ -408,6 +408,7 @@
     "rights": "All rights reserved.",
     "privacy": "Privacy",
     "terms": "Terms",
+    "refunds": "Refunds",
     "product_title": "Product",
     "company_title": "Company",
     "feat_link": "Features",
@@ -534,7 +535,9 @@
     "s11_title": "11. Governing Law",
     "s11_body": "These Terms of Service are governed by the laws of the Republic of Costa Rica. For any dispute that cannot be resolved amicably, the parties submit to the jurisdiction of the competent courts of San José, Costa Rica.",
     "s12_title": "12. Contact",
-    "s12_body": "For inquiries, claims, or requests related to these Terms of Service, contact us at legal@firmiu.com. We will respond within a maximum of 5 business days."
+    "s12_body": "For inquiries, claims, or requests related to these Terms of Service, contact us at legal@firmiu.com. We will respond within a maximum of 5 business days.",
+    "s13_title": "13. Refunds and Cancellations",
+    "s13_body": "Paid subscriptions can be cancelled at any time from your account dashboard. We do not issue refunds for partial periods once the monthly charge has been processed. Free plans have no charges or commitments. For more information, see our full Refund Policy."
   },
   "privacy": {
     "title": "Privacy Policy",
@@ -625,5 +628,20 @@
     "loading": "Preparing your subscription...",
     "go_dashboard": "Go to dashboard",
     "error": "Checkout could not be started. Please try again."
+  },
+  "refund": {
+    "title": "Refund Policy",
+    "updated": "Last updated: April 2025",
+    "intro": "This policy describes the conditions under which Firmiu handles cancellations and refund requests.",
+    "s1_title": "1. General Policy",
+    "s1_body": "Firmiu offers monthly subscription plans. By subscribing to a paid plan, you agree to the terms described in this policy. We are not responsible for refunds for periods during which the service was available and you had active access.",
+    "s2_title": "2. Refunds",
+    "s2_body": "We do not issue refunds for partial periods once the monthly charge has been processed. However, if you experience a technical issue attributable to Firmiu that prevented you from using the service for 72 hours or more within a billed period, you may request a proportional refund by emailing support@firmiu.com with the incident details.",
+    "s3_title": "3. Cancellations",
+    "s3_body": "You can cancel your subscription at any time from the Account section in your dashboard. Upon cancellation, your plan remains active until the end of the current billing period, with no additional charges. No refunds are issued for the remaining time in the period.",
+    "s4_title": "4. Exceptions",
+    "s4_body": "Exceptions to this policy only apply when required by applicable law in your jurisdiction. In case of a dispute, contact us at legal@firmiu.com before initiating any chargeback process with your financial institution. We address all requests within a maximum of 5 business days.",
+    "contact_label": "Have questions about this policy?",
+    "contact_email": "legal@firmiu.com"
   }
 }

@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -15,7 +16,9 @@ export default function TerminosPage({ params: { locale } }: TerminosPageProps) 
   setRequestLocale(locale);
   const t = useTranslations("terms");
 
-  const sections = Array.from({ length: 12 }, (_, i) => ({
+  const prefix = locale === "en" ? "/en" : "";
+
+  const sections = Array.from({ length: 13 }, (_, i) => ({
     title: t(`s${i + 1}_title` as Parameters<typeof t>[0]),
     body:  t(`s${i + 1}_body`  as Parameters<typeof t>[0]),
   }));
@@ -65,7 +68,17 @@ export default function TerminosPage({ params: { locale } }: TerminosPageProps) 
                   </span>
                   {section.title.replace(/^\d+\.\s*/, "")}
                 </h2>
-                <p className="text-[14px] text-[#4B5563] leading-relaxed">{section.body}</p>
+                <p className="text-[14px] text-[#4B5563] leading-relaxed">
+                  {section.body}
+                  {i === 12 && (
+                    <Link
+                      href={`${prefix}/reembolsos`}
+                      className="ml-1 text-[#F97316] hover:text-[#EA580C] underline underline-offset-2 transition-colors"
+                    >
+                      →
+                    </Link>
+                  )}
+                </p>
               </div>
             ))}
           </div>

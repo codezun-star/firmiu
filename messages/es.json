@@ -408,6 +408,7 @@
     "rights": "Todos los derechos reservados.",
     "privacy": "Privacidad",
     "terms": "Términos",
+    "refunds": "Reembolsos",
     "product_title": "Producto",
     "company_title": "Compañía",
     "feat_link": "Características",
@@ -534,7 +535,9 @@
     "s11_title": "11. Ley Aplicable",
     "s11_body": "Estos Términos de Servicio se rigen por las leyes de la República de Costa Rica. Para cualquier disputa que no pueda resolverse de forma amistosa, las partes se someten a la jurisdicción de los tribunales competentes de San José, Costa Rica.",
     "s12_title": "12. Contacto",
-    "s12_body": "Para consultas, reclamos o solicitudes relacionadas con estos Términos de Servicio, contáctanos en legal@firmiu.com. Responderemos en un plazo máximo de 5 días hábiles."
+    "s12_body": "Para consultas, reclamos o solicitudes relacionadas con estos Términos de Servicio, contáctanos en legal@firmiu.com. Responderemos en un plazo máximo de 5 días hábiles.",
+    "s13_title": "13. Reembolsos y Cancelaciones",
+    "s13_body": "Las suscripciones de pago pueden cancelarse en cualquier momento desde tu panel de cuenta. No emitimos reembolsos por períodos parciales una vez procesado el cobro mensual. Los planes gratuitos no tienen cargos ni compromisos. Para más información, consulta nuestra Política de Reembolsos completa."
   },
   "privacy": {
     "title": "Política de Privacidad",
@@ -625,5 +628,20 @@
     "loading": "Preparando tu suscripción...",
     "go_dashboard": "Ir al dashboard",
     "error": "No se pudo iniciar el checkout. Intenta de nuevo."
+  },
+  "refund": {
+    "title": "Política de Reembolsos",
+    "updated": "Última actualización: abril 2025",
+    "intro": "Esta política describe las condiciones bajo las cuales Firmiu gestiona cancelaciones y solicitudes de reembolso.",
+    "s1_title": "1. Política General",
+    "s1_body": "Firmiu ofrece planes de suscripción mensuales. Al contratar un plan de pago, aceptas los términos descritos en esta política. No somos responsables de reembolsos por períodos en los que el servicio haya estado disponible y hayas tenido acceso activo.",
+    "s2_title": "2. Reembolsos",
+    "s2_body": "No emitimos reembolsos por períodos parciales una vez procesado el cobro del mes. Sin embargo, si experimentas un problema técnico imputable a Firmiu que te haya impedido usar el servicio durante 72 horas o más dentro de un período facturado, puedes solicitar un reembolso proporcional enviando un correo a soporte@firmiu.com con el detalle del incidente.",
+    "s3_title": "3. Cancelaciones",
+    "s3_body": "Puedes cancelar tu suscripción en cualquier momento desde la sección de Cuenta en tu panel. Al cancelar, tu plan permanece activo hasta el final del período facturado vigente, sin cargos adicionales. No se emiten reembolsos por el tiempo restante del período.",
+    "s4_title": "4. Excepciones",
+    "s4_body": "Las excepciones a esta política solo aplican cuando lo exija la ley aplicable en tu jurisdicción. En caso de disputa, contáctanos en legal@firmiu.com antes de iniciar cualquier proceso de contracargo con tu institución financiera. Atendemos todas las solicitudes en un plazo máximo de 5 días hábiles.",
+    "contact_label": "¿Tienes preguntas sobre esta política?",
+    "contact_email": "legal@firmiu.com"
   }
 }

@@ -84,6 +84,12 @@ export default function Footer() {
             >
               {t("terms")}
             </Link>
+            <Link
+              href={`${prefix}/reembolsos`}
+              className="text-[#4d7a9e] hover:text-white text-xs transition-colors"
+            >
+              {t("refunds")}
+            </Link>
           </div>
         </div>
       </div>

@@ -16,6 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/contacto", priority: 0.6, changeFrequency: "monthly" },
     { path: "/terminos", priority: 0.4, changeFrequency: "yearly" },
     { path: "/privacidad", priority: 0.4, changeFrequency: "yearly" },
+    { path: "/reembolsos", priority: 0.5, changeFrequency: "yearly" },
   ];
 
   const entries: MetadataRoute.Sitemap = [];
