@@ -31,6 +31,7 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
     .from("documentos")
     .select("id, titulo, nombre_destinatario, estado, creado_en")
     .eq("owner_id", userId)
+    .eq("oculto", false)
     .order("creado_en", { ascending: false });
 
   const docs = allDocs ?? [];

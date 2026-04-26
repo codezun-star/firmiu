@@ -54,3 +54,25 @@ export async function deleteContactAction(
   revalidatePath(`${prefix}/dashboard/contactos`);
   return { error: null };
 }
+
+export async function hideContactAction(
+  id: string,
+  locale: string
+): Promise<ContactResult> {
+  if (!isValidUUID(id)) return { error: "generic" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "generic" };
+
+  const { error } = await supabase
+    .from("contactos")
+    .update({ oculto: true })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+  if (error) return { error: "generic" };
+
+  const prefix = locale === "es" ? "" : `/${locale}`;
+  revalidatePath(`${prefix}/dashboard/contactos`);
+  return { error: null };
+}

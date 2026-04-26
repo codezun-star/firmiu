@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { hideDocumentAction } from "@/app/actions/documents";
+import { toast } from "@/lib/toast";
 
 type Estado = "pendiente" | "visto" | "firmado";
 type FilterKey = "todos" | Estado;
@@ -19,10 +22,21 @@ export interface DocumentoRow {
   signedFirmadoUrl: string | null;
 }
 
+interface StatusCounts {
+  todos: number;
+  pendiente: number;
+  visto: number;
+  firmado: number;
+}
+
 interface Props {
   documents: DocumentoRow[];
   locale: string;
   appUrl: string;
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  statusCounts: StatusCounts;
 }
 
 const statusConfig: Record<Estado, { badge: string; dot: string; label: string }> = {
@@ -50,20 +64,33 @@ function DocIcon() {
   );
 }
 
-export default function DocumentosClient({ documents, locale, appUrl }: Props) {
+export default function DocumentosClient({ documents, locale, appUrl, page, totalPages, totalCount, statusCounts }: Props) {
   const t = useTranslations("documents");
+  const tp = useTranslations("pagination");
+  const router = useRouter();
   const prefix = locale === "es" ? "" : `/${locale}`;
 
   const [filter, setFilter]   = useState<FilterKey>("todos");
   const [search, setSearch]   = useState("");
   const [copiedId, setCopied] = useState<string | null>(null);
+  const [hideId, setHideId]   = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  /* ── Derived counts ── */
-  const totalCount    = documents.length;
-  const pendingCount  = documents.filter(d => d.estado === "pendiente").length;
-  const signedCount   = documents.filter(d => d.estado === "firmado").length;
+  /* ── Hide action ── */
+  function handleHide(id: string) {
+    startTransition(async () => {
+      const result = await hideDocumentAction(id, locale);
+      if (!result.error) {
+        setHideId(null);
+        router.refresh();
+        toast.success(t("hide_success"));
+      } else {
+        toast.error(t("hide_success"));
+      }
+    });
+  }
 
-  /* ── Filtered list ── */
+  /* ── Filtered list (within current page) ── */
   const filtered = documents.filter(doc => {
     const matchFilter = filter === "todos" || doc.estado === filter;
     const q = search.toLowerCase();
@@ -83,12 +110,12 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
     } catch { /* ignore */ }
   }
 
-  /* ── Filter tab data ── */
+  /* ── Filter tab data (counts from server — all pages) ── */
   const tabs: { key: FilterKey; label: string; count: number }[] = [
-    { key: "todos",     label: t("filter_all"),       count: totalCount },
-    { key: "pendiente", label: t("status.pendiente"),  count: pendingCount },
-    { key: "visto",     label: t("status.visto"),      count: documents.filter(d => d.estado === "visto").length },
-    { key: "firmado",   label: t("status.firmado"),    count: signedCount },
+    { key: "todos",     label: t("filter_all"),      count: statusCounts.todos },
+    { key: "pendiente", label: t("status.pendiente"), count: statusCounts.pendiente },
+    { key: "visto",     label: t("status.visto"),     count: statusCounts.visto },
+    { key: "firmado",   label: t("status.firmado"),   count: statusCounts.firmado },
   ];
 
   const isEmpty = filtered.length === 0;
@@ -99,9 +126,9 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
       {/* ── Stats row ── */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: t("stats_total"),   value: totalCount,   color: "text-[#F97316]",  bg: "bg-[#FFF7ED]" },
-          { label: t("stats_pending"), value: pendingCount, color: "text-[#3B82F6]",  bg: "bg-[#EFF6FF]" },
-          { label: t("stats_signed"),  value: signedCount,  color: "text-[#10B981]",  bg: "bg-[#ECFDF5]" },
+          { label: t("stats_total"),   value: statusCounts.todos,     color: "text-[#F97316]", bg: "bg-[#FFF7ED]" },
+          { label: t("stats_pending"), value: statusCounts.pendiente, color: "text-[#3B82F6]", bg: "bg-[#EFF6FF]" },
+          { label: t("stats_signed"),  value: statusCounts.firmado,   color: "text-[#10B981]", bg: "bg-[#ECFDF5]" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-[14px] border-[0.5px] border-[#E5E7EB] p-4">
             <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${s.bg} mb-2`}>
@@ -198,8 +225,9 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                     t("table.status"),
                     t("table.date"),
                     t("table.actions"),
-                  ].map(h => (
-                    <th key={h} className="text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider px-5 py-3 whitespace-nowrap">
+                    "",
+                  ].map((h, i) => (
+                    <th key={i} className="text-left text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider px-5 py-3 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -209,6 +237,7 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                 {filtered.map(doc => {
                   const cfg = statusConfig[doc.estado];
                   const isCopied = copiedId === doc.id;
+                  const isHiding = hideId === doc.id;
                   return (
                     <tr key={doc.id} className="hover:bg-[#FAFAFA] transition-colors group">
 
@@ -216,10 +245,7 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                       <td className="px-5 py-3.5 max-w-[220px]">
                         <div className="flex items-center gap-3">
                           <DocIcon />
-                          <span
-                            className="text-sm font-medium text-[#111827] truncate"
-                            title={doc.titulo}
-                          >
+                          <span className="text-sm font-medium text-[#111827] truncate" title={doc.titulo}>
                             {doc.titulo}
                           </span>
                         </div>
@@ -227,9 +253,7 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
 
                       {/* Client */}
                       <td className="px-5 py-3.5">
-                        <p className="text-sm font-medium text-[#111827]">
-                          {doc.nombre_destinatario}
-                        </p>
+                        <p className="text-sm font-medium text-[#111827]">{doc.nombre_destinatario}</p>
                         <p className="text-xs text-[#9CA3AF]">{doc.correo_destinatario}</p>
                       </td>
 
@@ -243,16 +267,12 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
 
                       {/* Date */}
                       <td className="px-5 py-3.5 whitespace-nowrap">
-                        <span className="text-sm text-[#6B7280]">
-                          {formatDate(doc.creado_en, locale)}
-                        </span>
+                        <span className="text-sm text-[#6B7280]">{formatDate(doc.creado_en, locale)}</span>
                       </td>
 
                       {/* Actions */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-
-                          {/* Ver PDF original */}
                           {doc.signedOriginalUrl ? (
                             <a
                               href={doc.signedOriginalUrl}
@@ -267,8 +287,6 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                               {t("view")}
                             </a>
                           ) : null}
-
-                          {/* Descargar firmado */}
                           {doc.estado === "firmado" && doc.signedFirmadoUrl ? (
                             <a
                               href={doc.signedFirmadoUrl}
@@ -282,15 +300,11 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                               {t("download")}
                             </a>
                           ) : null}
-
-                          {/* Copiar enlace de firma */}
                           {(doc.estado === "pendiente" || doc.estado === "visto") ? (
                             <button
                               onClick={() => copyLink(doc)}
                               className={`inline-flex items-center gap-1 text-xs font-medium transition-colors ${
-                                isCopied
-                                  ? "text-[#10B981]"
-                                  : "text-[#6B7280] hover:text-[#111827]"
+                                isCopied ? "text-[#10B981]" : "text-[#6B7280] hover:text-[#111827]"
                               }`}
                             >
                               {isCopied ? (
@@ -311,8 +325,40 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                               )}
                             </button>
                           ) : null}
-
                         </div>
+                      </td>
+
+                      {/* Hide */}
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        {isHiding ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleHide(doc.id)}
+                              disabled={isPending}
+                              className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              {t("hide")}
+                            </button>
+                            <button
+                              onClick={() => setHideId(null)}
+                              className="text-[11px] font-medium text-[#6B7280] hover:text-[#111827] px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              {t("cancel")}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setHideId(doc.id)}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-[#D1D5DB] hover:text-[#9CA3AF] transition-colors opacity-0 group-hover:opacity-100"
+                            title={t("hide_confirm")}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                            {t("hide")}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -328,6 +374,7 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
             {filtered.map(doc => {
               const cfg = statusConfig[doc.estado];
               const isCopied = copiedId === doc.id;
+              const isHiding = hideId === doc.id;
               return (
                 <div key={doc.id} className="p-4">
                   {/* Title + badge */}
@@ -358,21 +405,13 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                     <span className="text-xs text-[#9CA3AF]">{formatDate(doc.creado_en, locale)}</span>
                     <div className="flex items-center gap-3">
                       {doc.signedOriginalUrl ? (
-                        <a
-                          href={doc.signedOriginalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-medium text-[#1a3c5e] hover:text-[#F97316] transition-colors"
-                        >
+                        <a href={doc.signedOriginalUrl} target="_blank" rel="noopener noreferrer"
+                          className="text-xs font-medium text-[#1a3c5e] hover:text-[#F97316] transition-colors">
                           {t("view")}
                         </a>
                       ) : null}
                       {doc.estado === "firmado" && doc.signedFirmadoUrl ? (
-                        <a
-                          href={doc.signedFirmadoUrl}
-                          download
-                          className="text-xs font-medium text-[#10B981]"
-                        >
+                        <a href={doc.signedFirmadoUrl} download className="text-xs font-medium text-[#10B981]">
                           {t("download")}
                         </a>
                       ) : null}
@@ -384,6 +423,23 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
                           {isCopied ? t("copied") : t("copy_link")}
                         </button>
                       ) : null}
+                      {isHiding ? (
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => handleHide(doc.id)} disabled={isPending}
+                            className="text-[11px] font-semibold text-white bg-[#F97316] px-2 py-1 rounded-lg disabled:opacity-50">
+                            {t("hide")}
+                          </button>
+                          <button onClick={() => setHideId(null)}
+                            className="text-[11px] text-[#6B7280] px-2 py-1 rounded-lg">
+                            {t("cancel")}
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setHideId(doc.id)}
+                          className="text-xs font-medium text-[#D1D5DB] hover:text-[#9CA3AF] transition-colors">
+                          {t("hide")}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -392,14 +448,39 @@ export default function DocumentosClient({ documents, locale, appUrl }: Props) {
           </div>
         )}
 
-        {/* Row count footer */}
-        {!isEmpty && (
-          <div className="px-5 py-3 border-t border-[#F3F4F6] bg-[#FAFAFA] rounded-b-[14px]">
-            <p className="text-xs text-[#9CA3AF]">
-              {filtered.length} {filtered.length === 1 ? "documento" : "documentos"}
-            </p>
-          </div>
-        )}
+        {/* ── Footer: count + pagination ── */}
+        <div className="px-5 py-3 border-t border-[#F3F4F6] bg-[#FAFAFA] rounded-b-[14px] flex items-center justify-between">
+          <p className="text-xs text-[#9CA3AF]">
+            {tp("showing", {
+              from: totalCount === 0 ? 0 : (page - 1) * 10 + 1,
+              to: Math.min(page * 10, totalCount),
+              count: totalCount,
+            })}
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <Link href={`?page=${page - 1}`}
+                  className="text-xs font-medium text-[#1a3c5e] hover:bg-[#F0F7FF] px-3 py-1.5 rounded-lg transition-colors">
+                  ← {tp("previous")}
+                </Link>
+              ) : (
+                <span className="text-xs font-medium text-[#D1D5DB] px-3 py-1.5">← {tp("previous")}</span>
+              )}
+              <span className="text-xs text-[#6B7280] px-1">
+                {tp("page_of", { page, total: totalPages })}
+              </span>
+              {page < totalPages ? (
+                <Link href={`?page=${page + 1}`}
+                  className="text-xs font-medium text-[#1a3c5e] hover:bg-[#F0F7FF] px-3 py-1.5 rounded-lg transition-colors">
+                  {tp("next")} →
+                </Link>
+              ) : (
+                <span className="text-xs font-medium text-[#D1D5DB] px-3 py-1.5">{tp("next")} →</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { addContactAction, deleteContactAction } from "@/app/actions/contacts";
+import { addContactAction, hideContactAction } from "@/app/actions/contacts";
 import { toast } from "@/lib/toast";
 
 interface Contact {
@@ -18,6 +18,9 @@ interface Contact {
 interface Props {
   locale: string;
   contactos: Contact[];
+  page: number;
+  totalPages: number;
+  totalCount: number;
 }
 
 const AVATAR_COLORS = [
@@ -34,14 +37,15 @@ function initials(name: string) {
   return name.split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2);
 }
 
-export default function ContactosClient({ locale, contactos }: Props) {
+export default function ContactosClient({ locale, contactos, page, totalPages, totalCount }: Props) {
   const t = useTranslations("contacts_page");
+  const tp = useTranslations("pagination");
   const router = useRouter();
   const prefix = locale === "es" ? "" : `/${locale}`;
 
   const [search, setSearch]       = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [deleteId, setDeleteId]   = useState<string | null>(null);
+  const [hideId, setHideId]       = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -71,12 +75,12 @@ export default function ContactosClient({ locale, contactos }: Props) {
     });
   }
 
-  function handleDelete(id: string) {
+  function handleHide(id: string) {
     startTransition(async () => {
-      await deleteContactAction(id, locale);
-      setDeleteId(null);
+      await hideContactAction(id, locale);
+      setHideId(null);
       router.refresh();
-      toast.success(t("toast_deleted"));
+      toast.success(t("hide_success"));
     });
   }
 
@@ -117,7 +121,7 @@ export default function ContactosClient({ locale, contactos }: Props) {
       )}
 
       {/* ── Empty state ── */}
-      {contactos.length === 0 && (
+      {totalCount === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-[#F0F7FF] border border-[#DBEAFE] flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-[#1a3c5e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,8 +142,8 @@ export default function ContactosClient({ locale, contactos }: Props) {
         </div>
       )}
 
-      {/* ── No results (filtered) ── */}
-      {contactos.length > 0 && filtered.length === 0 && (
+      {/* ── No results (filtered search) ── */}
+      {totalCount > 0 && filtered.length === 0 && (
         <div className="py-12 text-center text-[13px] text-[#9CA3AF]">
           Sin resultados para &ldquo;{search}&rdquo;
         </div>
@@ -151,7 +155,7 @@ export default function ContactosClient({ locale, contactos }: Props) {
           {filtered.map((c) => {
             const color = avatarColor(c.correo);
             const inits = initials(c.nombre);
-            const isDeleting = deleteId === c.id;
+            const isHiding = hideId === c.id;
 
             return (
               <div
@@ -178,18 +182,18 @@ export default function ContactosClient({ locale, contactos }: Props) {
                 </div>
 
                 {/* Actions */}
-                {isDeleting ? (
+                {isHiding ? (
                   <div className="flex items-center gap-2">
-                    <p className="text-[12px] text-[#EF4444] flex-1">{t("delete_confirm")}</p>
+                    <p className="text-[12px] text-[#F97316] flex-1">{t("hide_confirm")}</p>
                     <button
-                      onClick={() => handleDelete(c.id)}
+                      onClick={() => handleHide(c.id)}
                       disabled={isPending}
-                      className="text-[11px] font-semibold text-white bg-[#EF4444] hover:bg-[#DC2626] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                      className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                     >
-                      {t("delete")}
+                      {t("hide")}
                     </button>
                     <button
-                      onClick={() => setDeleteId(null)}
+                      onClick={() => setHideId(null)}
                       className="text-[11px] font-medium text-[#6B7280] hover:text-[#111827] px-3 py-1.5 rounded-lg transition-colors"
                     >
                       {t("cancel")}
@@ -207,12 +211,13 @@ export default function ContactosClient({ locale, contactos }: Props) {
                       {t("send_doc")}
                     </Link>
                     <button
-                      onClick={() => setDeleteId(c.id)}
-                      className="inline-flex items-center justify-center w-9 h-9 text-[#D1D5DB] hover:text-[#EF4444] hover:bg-red-50 rounded-lg transition-colors"
-                      title={t("delete")}
+                      onClick={() => setHideId(c.id)}
+                      className="inline-flex items-center justify-center w-9 h-9 text-[#D1D5DB] hover:text-[#F97316] hover:bg-orange-50 rounded-lg transition-colors"
+                      title={t("hide")}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                       </svg>
                     </button>
                   </div>
@@ -220,6 +225,40 @@ export default function ContactosClient({ locale, contactos }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Pagination ── */}
+      {totalPages > 1 && (
+        <div className="mt-5 flex items-center justify-between bg-white rounded-[10px] border-[0.5px] border-[#E5E7EB] px-5 py-3">
+          <p className="text-xs text-[#9CA3AF]">
+            {tp("showing", {
+              from: totalCount === 0 ? 0 : (page - 1) * 10 + 1,
+              to: Math.min(page * 10, totalCount),
+              count: totalCount,
+            })}
+          </p>
+          <div className="flex items-center gap-2">
+            {page > 1 ? (
+              <Link href={`?page=${page - 1}`}
+                className="text-xs font-medium text-[#1a3c5e] hover:bg-[#F0F7FF] px-3 py-1.5 rounded-lg transition-colors">
+                ← {tp("previous")}
+              </Link>
+            ) : (
+              <span className="text-xs font-medium text-[#D1D5DB] px-3 py-1.5">← {tp("previous")}</span>
+            )}
+            <span className="text-xs text-[#6B7280] px-1">
+              {tp("page_of", { page, total: totalPages })}
+            </span>
+            {page < totalPages ? (
+              <Link href={`?page=${page + 1}`}
+                className="text-xs font-medium text-[#1a3c5e] hover:bg-[#F0F7FF] px-3 py-1.5 rounded-lg transition-colors">
+                {tp("next")} →
+              </Link>
+            ) : (
+              <span className="text-xs font-medium text-[#D1D5DB] px-3 py-1.5">{tp("next")} →</span>
+            )}
+          </div>
         </div>
       )}
 

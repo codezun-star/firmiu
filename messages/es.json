@@ -318,7 +318,11 @@
     "empty_desc": "Envía tu primer PDF para firma y aparecerá aquí.",
     "empty_filtered": "Sin resultados",
     "empty_filtered_desc": "No hay documentos que coincidan con tu búsqueda.",
-    "new_document_cta": "Nuevo documento"
+    "new_document_cta": "Nuevo documento",
+    "hide": "Ocultar",
+    "hide_confirm": "¿Ocultar este documento? Solo desaparecerá de tu panel, no se eliminará.",
+    "hide_success": "Documento ocultado",
+    "cancel": "Cancelar"
   },
   "nuevo": {
     "title": "Nuevo documento",
@@ -427,6 +431,9 @@
     "delete_confirm": "¿Eliminar este contacto?",
     "toast_added": "¡Contacto guardado correctamente!",
     "toast_deleted": "Contacto eliminado.",
+    "hide": "Ocultar",
+    "hide_confirm": "¿Ocultar este contacto? Solo desaparecerá de tu panel, no se eliminará.",
+    "hide_success": "Contacto ocultado",
     "empty_title": "Sin contactos aún",
     "empty_desc": "Agrega contactos para enviar documentos más rápido.",
     "errors": {
@@ -602,6 +609,16 @@
     "total": "Total firmados",
     "activity_signed": "firmó",
     "activity_empty": "Sin actividad reciente",
-    "unsigned_old": "documentos sin firmar con más de 7 días"
+    "unsigned_old": "documentos sin firmar con más de 7 días",
+    "hide": "Ocultar",
+    "hide_confirm": "¿Ocultar esta firma? Solo desaparecerá de tu panel, no se eliminará.",
+    "hide_success": "Firma ocultada",
+    "cancel": "Cancelar"
+  },
+  "pagination": {
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page_of": "Página {page} de {total}",
+    "showing": "Mostrando {from}-{to} de {count} registros"
   }
 }

@@ -1,10 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { escapeHtml, isValidEmail, sanitizeText } from "@/lib/security";
+import { escapeHtml, isValidEmail, isValidUUID, sanitizeText } from "@/lib/security";
 
 export type DocumentState = {
   errorKey: string | null;
@@ -192,4 +193,28 @@ export async function uploadDocumentAction(
   }
 
   return { errorKey: null, success: true, destinatario: nombreDestinatario, titulo };
+}
+
+export async function hideDocumentAction(
+  id: string,
+  locale: string
+): Promise<{ error: string | null }> {
+  if (!isValidUUID(id)) return { error: "generic" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "generic" };
+
+  const { error } = await supabase
+    .from("documentos")
+    .update({ oculto: true })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+
+  if (error) return { error: "generic" };
+
+  const prefix = locale === "es" ? "" : `/${locale}`;
+  revalidatePath(`${prefix}/dashboard/documentos`);
+  revalidatePath(`${prefix}/dashboard`);
+  return { error: null };
 }

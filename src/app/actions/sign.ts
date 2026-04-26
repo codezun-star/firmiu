@@ -457,3 +457,49 @@ export async function downloadSignedPdfAction(
 
   return { url: urlData.signedUrl, errorKey: null };
 }
+
+
+export async function hideSignatureAction(
+  id: string,
+  locale: string
+): Promise<{ error: string | null }> {
+  // Inline imports to avoid changing top-level imports in this file
+  const { createClient } = await import("@/lib/supabase/server");
+  const { revalidatePath } = await import("next/cache");
+
+  if (!isValidUUID(id)) return { error: "generic" };
+
+  const supabase = createClient();
+  const admin = createAdminClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "generic" };
+
+  // Resolve ownership: firma → documento → owner
+  const { data: firma } = await admin
+    .from("firmas")
+    .select("documento_id")
+    .eq("id", id)
+    .single();
+  if (!firma) return { error: "generic" };
+
+  // RLS on documentos ensures only the owner can read this row
+  const { data: doc } = await supabase
+    .from("documentos")
+    .select("id")
+    .eq("id", firma.documento_id)
+    .eq("owner_id", user.id)
+    .single();
+  if (!doc) return { error: "generic" };
+
+  const { error } = await admin
+    .from("firmas")
+    .update({ oculto: true })
+    .eq("id", id);
+  if (error) return { error: "generic" };
+
+  const prefix = locale === "es" ? "" : `/${locale}`;
+  revalidatePath(`${prefix}/dashboard/firmas`);
+  revalidatePath(`${prefix}/dashboard`);
+  return { error: null };
+}

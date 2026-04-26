@@ -318,7 +318,11 @@
     "empty_desc": "Send your first PDF for signing and it will appear here.",
     "empty_filtered": "No results",
     "empty_filtered_desc": "No documents match your search.",
-    "new_document_cta": "New document"
+    "new_document_cta": "New document",
+    "hide": "Hide",
+    "hide_confirm": "Hide this document? It will only disappear from your panel, not be deleted.",
+    "hide_success": "Document hidden",
+    "cancel": "Cancel"
   },
   "nuevo": {
     "title": "New document",
@@ -427,6 +431,9 @@
     "delete_confirm": "Delete this contact?",
     "toast_added": "Contact saved successfully!",
     "toast_deleted": "Contact deleted.",
+    "hide": "Hide",
+    "hide_confirm": "Hide this contact? It will only disappear from your panel, not be deleted.",
+    "hide_success": "Contact hidden",
     "empty_title": "No contacts yet",
     "empty_desc": "Add contacts to send documents faster.",
     "errors": {
@@ -602,6 +609,16 @@
     "total": "Total signed",
     "activity_signed": "signed",
     "activity_empty": "No recent activity",
-    "unsigned_old": "unsigned documents older than 7 days"
+    "unsigned_old": "unsigned documents older than 7 days",
+    "hide": "Hide",
+    "hide_confirm": "Hide this signature? It will only disappear from your panel, not be deleted.",
+    "hide_success": "Signature hidden",
+    "cancel": "Cancel"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {page} of {total}",
+    "showing": "Showing {from}-{to} of {count} records"
   }
 }
