@@ -196,6 +196,9 @@
       "feature3_desc": "IP, hora, dispositivo, ubicación"
     },
     "register": {
+      "meta_title": "Crear cuenta gratis",
+      "meta_description": "Crea tu cuenta gratis en Firmiu. Firma y envía documentos PDF digitalmente, sin impresoras ni escáneres. Válido en toda Latinoamérica.",
+      "meta_keywords": "crear cuenta firma digital, registro firmiu, firma electrónica gratis, firmar PDF gratis, firma digital latinoamerica",
       "title": "Crear cuenta",
       "subtitle": "Empieza gratis, sin tarjeta de crédito",
       "first_name": "Nombre",
@@ -218,6 +221,9 @@
       "success_note": "Una vez verificada tu cuenta podrás iniciar sesión."
     },
     "login": {
+      "meta_title": "Iniciar sesión",
+      "meta_description": "Inicia sesión en tu cuenta Firmiu para gestionar y enviar documentos para firma digital. Accede a tu panel, contactos y documentos.",
+      "meta_keywords": "firmiu login, iniciar sesión firma digital, acceso firmiu, ingresar firma electrónica",
       "title": "Bienvenido",
       "subtitle": "Ingresa a tu cuenta de Firmiu",
       "email": "Correo electrónico",
@@ -534,12 +540,16 @@
     "s10_body": "Nos reservamos el derecho de modificar estos Términos en cualquier momento. Notificaremos cambios materiales por correo electrónico con al menos 15 días de anticipación. El uso continuado de Firmiu después de la fecha de vigencia de los nuevos términos implica su aceptación.",
     "s11_title": "11. Ley Aplicable",
     "s11_body": "Estos Términos de Servicio se rigen por las leyes de la República de Costa Rica. Para cualquier disputa que no pueda resolverse de forma amistosa, las partes se someten a la jurisdicción de los tribunales competentes de San José, Costa Rica.",
+    "meta_description": "Lee los Términos de Servicio de Firmiu: condiciones de uso, planes, responsabilidades, propiedad intelectual, cancelaciones y ley aplicable.",
+    "meta_keywords": "términos de servicio firmiu, condiciones de uso firma digital, términos firma electrónica, contrato firmiu",
     "s12_title": "12. Contacto",
     "s12_body": "Para consultas, reclamos o solicitudes relacionadas con estos Términos de Servicio, contáctanos en legal@firmiu.com. Responderemos en un plazo máximo de 5 días hábiles.",
     "s13_title": "13. Reembolsos y Cancelaciones",
     "s13_body": "Las suscripciones de pago pueden cancelarse en cualquier momento desde tu panel de cuenta. No emitimos reembolsos por períodos parciales una vez procesado el cobro mensual. Los planes gratuitos no tienen cargos ni compromisos. Para más información, consulta nuestra Política de Reembolsos completa."
   },
   "privacy": {
+    "meta_description": "Política de Privacidad de Firmiu: cómo recopilamos, utilizamos y protegemos tus datos personales y documentos. Cumplimiento GDPR y leyes de protección de datos de Latinoamérica.",
+    "meta_keywords": "política de privacidad firmiu, protección de datos firma digital, privacidad firma electrónica, GDPR firmiu",
     "title": "Política de Privacidad",
     "updated": "Última actualización: 24 de abril de 2026",
     "intro": "En Firmiu nos comprometemos a proteger tu privacidad. Esta política explica qué información recopilamos, cómo la usamos y cómo la protegemos.",
@@ -570,6 +580,7 @@
     "loading": "Preparando tu suscripción..."
   },
   "about": {
+    "meta_keywords": "quiénes somos firmiu, empresa firma digital latinoamerica, misión firmiu, firma electrónica latam, equipo firmiu",
     "title": "Sobre Firmiu",
     "subtitle": "Simplificamos la firma digital para toda Latinoamérica.",
     "mission_title": "Nuestra misión",
@@ -590,6 +601,7 @@
     "value_3_desc": "Precios justos pensados para el mercado latinoamericano."
   },
   "contact": {
+    "meta_keywords": "contacto firmiu, soporte firma digital, ayuda firmiu, email firma electrónica, atención al cliente firmiu",
     "title": "Contacto",
     "subtitle": "¿Tenés alguna pregunta? Escribinos.",
     "body": "Podés contactarnos directamente por correo:",
@@ -630,6 +642,7 @@
     "error": "No se pudo iniciar el checkout. Intenta de nuevo."
   },
   "refund": {
+    "meta_keywords": "política de reembolsos firmiu, cancelación suscripción firma digital, reembolso firma electrónica, cancelar plan firmiu",
     "title": "Política de Reembolsos",
     "updated": "Última actualización: abril 2025",
     "intro": "Esta política describe las condiciones bajo las cuales Firmiu gestiona cancelaciones y solicitudes de reembolso.",

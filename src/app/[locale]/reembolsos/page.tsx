@@ -14,19 +14,26 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params: { locale } }: ReembolsosPageProps): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "refund" });
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
   const prefix = locale === "es" ? "" : `/${locale}`;
-
   return {
     title: `${t("title")} — Firmiu`,
     description: t("intro"),
+    keywords: t("meta_keywords"),
     alternates: {
-      canonical: `${baseUrl}${prefix}/reembolsos`,
-      languages: {
-        es: `${baseUrl}/reembolsos`,
-        en: `${baseUrl}/en/reembolsos`,
-      },
+      canonical: `${base}${prefix}/reembolsos`,
+      languages: { es: `${base}/reembolsos`, en: `${base}/en/reembolsos` },
     },
+    openGraph: {
+      title: `${t("title")} — Firmiu`,
+      description: t("intro"),
+      url: `${base}${prefix}/reembolsos`,
+      siteName: "Firmiu",
+      locale: locale === "es" ? "es_419" : "en_US",
+      type: "website",
+    },
+    twitter: { card: "summary", title: `${t("title")} — Firmiu`, description: t("intro") },
+    robots: { index: true, follow: true },
   };
 }
 

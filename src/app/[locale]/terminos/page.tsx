@@ -1,5 +1,6 @@
+import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -10,6 +11,31 @@ interface TerminosPageProps {
 
 export function generateStaticParams() {
   return [{ locale: "es" }, { locale: "en" }];
+}
+
+export async function generateMetadata({ params: { locale } }: TerminosPageProps): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: "terms" });
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
+  const prefix = locale === "es" ? "" : `/${locale}`;
+  return {
+    title: `${t("title")} — Firmiu`,
+    description: t("meta_description"),
+    keywords: t("meta_keywords"),
+    alternates: {
+      canonical: `${base}${prefix}/terminos`,
+      languages: { es: `${base}/terminos`, en: `${base}/en/terminos` },
+    },
+    openGraph: {
+      title: `${t("title")} — Firmiu`,
+      description: t("meta_description"),
+      url: `${base}${prefix}/terminos`,
+      siteName: "Firmiu",
+      locale: locale === "es" ? "es_419" : "en_US",
+      type: "website",
+    },
+    twitter: { card: "summary", title: `${t("title")} — Firmiu`, description: t("meta_description") },
+    robots: { index: true, follow: true },
+  };
 }
 
 export default function TerminosPage({ params: { locale } }: TerminosPageProps) {

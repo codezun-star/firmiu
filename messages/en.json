@@ -196,6 +196,9 @@
       "feature3_desc": "IP, time, device, location"
     },
     "register": {
+      "meta_title": "Create Free Account",
+      "meta_description": "Create your free Firmiu account. Sign and send PDF documents digitally, no printers or scanners needed. Legally valid across Latin America.",
+      "meta_keywords": "create digital signature account, firmiu register, free electronic signature, sign PDF free, digital signature latin america",
       "title": "Create account",
       "subtitle": "Start free, no credit card required",
       "first_name": "First name",
@@ -218,6 +221,9 @@
       "success_note": "Once verified, you can sign in to your account."
     },
     "login": {
+      "meta_title": "Sign In",
+      "meta_description": "Sign in to your Firmiu account to manage and send documents for digital signatures. Access your dashboard, contacts and documents.",
+      "meta_keywords": "firmiu login, sign in digital signature, firmiu access, electronic signature login",
       "title": "Welcome",
       "subtitle": "Sign in to your Firmiu account",
       "email": "Email address",
@@ -534,12 +540,16 @@
     "s10_body": "We reserve the right to modify these Terms at any time. We will notify you of material changes by email at least 15 days in advance. Continued use of Firmiu after the effective date of the new terms implies acceptance.",
     "s11_title": "11. Governing Law",
     "s11_body": "These Terms of Service are governed by the laws of the Republic of Costa Rica. For any dispute that cannot be resolved amicably, the parties submit to the jurisdiction of the competent courts of San José, Costa Rica.",
+    "meta_description": "Read Firmiu's Terms of Service: usage conditions, plans, responsibilities, intellectual property, cancellations and governing law.",
+    "meta_keywords": "firmiu terms of service, digital signature terms, electronic signature terms and conditions, firmiu agreement",
     "s12_title": "12. Contact",
     "s12_body": "For inquiries, claims, or requests related to these Terms of Service, contact us at legal@firmiu.com. We will respond within a maximum of 5 business days.",
     "s13_title": "13. Refunds and Cancellations",
     "s13_body": "Paid subscriptions can be cancelled at any time from your account dashboard. We do not issue refunds for partial periods once the monthly charge has been processed. Free plans have no charges or commitments. For more information, see our full Refund Policy."
   },
   "privacy": {
+    "meta_description": "Firmiu's Privacy Policy: how we collect, use and protect your personal data and documents. GDPR compliance and Latin American data protection laws.",
+    "meta_keywords": "firmiu privacy policy, digital signature data protection, electronic signature privacy, GDPR firmiu",
     "title": "Privacy Policy",
     "updated": "Last updated: April 24, 2026",
     "intro": "At Firmiu we are committed to protecting your privacy. This policy explains what information we collect, how we use it, and how we protect it.",
@@ -570,6 +580,7 @@
     "loading": "Preparing your subscription..."
   },
   "about": {
+    "meta_keywords": "about firmiu, digital signature company latin america, firmiu mission, electronic signature latam, firmiu team",
     "title": "About Firmiu",
     "subtitle": "We simplify digital signing for all of Latin America.",
     "mission_title": "Our mission",
@@ -590,6 +601,7 @@
     "value_3_desc": "Fair pricing designed for the Latin American market."
   },
   "contact": {
+    "meta_keywords": "firmiu contact, digital signature support, firmiu help, electronic signature email, firmiu customer service",
     "title": "Contact",
     "subtitle": "Have a question? Reach out.",
     "body": "You can contact us directly by email:",
@@ -630,6 +642,7 @@
     "error": "Checkout could not be started. Please try again."
   },
   "refund": {
+    "meta_keywords": "firmiu refund policy, digital signature subscription cancellation, electronic signature refund, cancel firmiu plan",
     "title": "Refund Policy",
     "updated": "Last updated: April 2025",
     "intro": "This policy describes the conditions under which Firmiu handles cancellations and refund requests.",

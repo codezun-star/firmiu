@@ -14,9 +14,26 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params: { locale } }: NosotrosPageProps): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "about" });
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
+  const prefix = locale === "es" ? "" : `/${locale}`;
   return {
     title: `${t("title")} — Firmiu`,
     description: t("subtitle"),
+    keywords: t("meta_keywords"),
+    alternates: {
+      canonical: `${base}${prefix}/nosotros`,
+      languages: { es: `${base}/nosotros`, en: `${base}/en/nosotros` },
+    },
+    openGraph: {
+      title: `${t("title")} — Firmiu`,
+      description: t("subtitle"),
+      url: `${base}${prefix}/nosotros`,
+      siteName: "Firmiu",
+      locale: locale === "es" ? "es_419" : "en_US",
+      type: "website",
+    },
+    twitter: { card: "summary_large_image", title: `${t("title")} — Firmiu`, description: t("subtitle") },
+    robots: { index: true, follow: true },
   };
 }
 

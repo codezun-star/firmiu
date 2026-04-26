@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import Logo from "@/components/Logo";
 import DownloadSignedButton from "@/components/DownloadSignedButton";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 interface ExitoPageProps {
   params: { locale: string };
