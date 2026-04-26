@@ -91,10 +91,10 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
   // ── Helpers ─────────────────────────────────────────────────
   function formatRelative(iso: string) {
     const diff = Math.floor((now.getTime() - new Date(iso).getTime()) / 1000);
-    if (diff < 60)    return locale === "es" ? "Ahora mismo" : "Just now";
-    if (diff < 3600)  return `${Math.floor(diff / 60)} min`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} h`;
-    return `${Math.floor(diff / 86400)} d`;
+    if (diff < 60)    return t("just_now");
+    if (diff < 3600)  return `${Math.floor(diff / 60)} ${t("time_min")}`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ${t("time_h")}`;
+    return `${Math.floor(diff / 86400)} ${t("time_d")}`;
   }
 
   const statusStyles: Record<string, string> = {
@@ -123,7 +123,7 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
           </div>
           <p className="text-[32px] font-medium text-[#F97316] leading-none mb-1">{totalCount}</p>
           <p className="text-[11px] text-[#6B7280] mb-3">
-            {thisMonth} {locale === "es" ? "este mes" : "this month"}
+            {thisMonth} {t("this_month_suffix")}
           </p>
           <div className="flex items-end gap-0.5 h-6">
             {sparkData.map((v, i) => (
@@ -205,9 +205,7 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
             {overdueCount}
           </p>
           <p className="text-[11px] text-[#6B7280] leading-snug">
-            {locale === "es"
-              ? "documentos sin firmar con más de 7 días"
-              : "unsigned documents older than 7 days"}
+            {t("stats.unsigned_old")}
           </p>
           {overdueCount > 0 && (
             <Link
@@ -287,7 +285,7 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
           <div className="px-5 py-3 divide-y divide-[#F3F4F6]">
             {activityItems.length === 0 ? (
               <p className="text-xs text-[#9CA3AF] py-6 text-center">
-                {locale === "es" ? "Sin actividad aún" : "No activity yet"}
+                {t("no_activity")}
               </p>
             ) : (
               activityItems.map((item, i) => (
@@ -297,7 +295,7 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
                     <p className="text-[12px] text-[#111827] leading-snug">
                       <span className="font-medium">{item.signer}</span>
                       <span className="text-[#6B7280]">
-                        {" "}{locale === "es" ? "firmó" : "signed"}{" "}
+                        {" "}{t("activity_signed")}{" "}
                       </span>
                       <span className="truncate">{item.docTitulo}</span>
                     </p>

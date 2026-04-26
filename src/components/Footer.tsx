@@ -13,8 +13,8 @@ export default function Footer({ locale }: FooterProps) {
     <footer className="bg-[#0f2640]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8">
 
-        {/* Top grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        {/* Top grid — 3 columns */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-10">
 
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
@@ -46,25 +46,6 @@ export default function Footer({ locale }: FooterProps) {
             </ul>
           </div>
 
-          {/* Resources */}
-          <div>
-            <p className="text-white text-[11px] font-semibold uppercase tracking-widest mb-4">
-              {t("resources_title")}
-            </p>
-            <ul className="space-y-2.5">
-              <li>
-                <a href="#" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
-                  {t("docs_link")}
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
-                  {t("api_link")}
-                </a>
-              </li>
-            </ul>
-          </div>
-
           {/* Company */}
           <div>
             <p className="text-white text-[11px] font-semibold uppercase tracking-widest mb-4">
@@ -72,17 +53,12 @@ export default function Footer({ locale }: FooterProps) {
             </p>
             <ul className="space-y-2.5">
               <li>
-                <a href="#" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <a href="#nosotros" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("about_link")}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
-                  {t("blog_link")}
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <a href="#contacto" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("contact_link")}
                 </a>
               </li>
@@ -109,31 +85,6 @@ export default function Footer({ locale }: FooterProps) {
             >
               {t("terms")}
             </a>
-
-            {/* Language toggle */}
-            <div className="flex items-center gap-1 text-xs">
-              <Link
-                href="/"
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  locale === "es"
-                    ? "text-white font-semibold"
-                    : "text-[#4d7a9e] hover:text-white"
-                }`}
-              >
-                ES
-              </Link>
-              <span className="text-[#2d5a80]">|</span>
-              <Link
-                href="/en"
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  locale === "en"
-                    ? "text-white font-semibold"
-                    : "text-[#4d7a9e] hover:text-white"
-                }`}
-              >
-                EN
-              </Link>
-            </div>
           </div>
         </div>
       </div>

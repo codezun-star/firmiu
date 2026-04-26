@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Price ID → plan mapping
 const PRICE_PLAN: Record<string, { plan: string; limit: number }> = {
   pri_01kq422bt1wz29n1q4vwn1p82m: { plan: "starter", limit: 30 },
-  pri_01kq426n7d2nb2yn1kahrjy99j: { plan: "pro", limit: 999999 },
+  pri_01kq426n7d2nb2yn1kahrjy99j: { plan: "pro", limit: 100 },
   pri_01kq42frwhz0kxg9mfs613zhq4: { plan: "business", limit: 999999 },
 };
 

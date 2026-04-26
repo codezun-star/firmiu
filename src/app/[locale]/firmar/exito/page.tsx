@@ -95,10 +95,10 @@ export default function ExitoPage({ params: { locale }, searchParams }: ExitoPag
             </div>
             <div>
               <p className="text-white text-[12px] font-semibold leading-tight mb-0.5">
-                100% legal · Almacenamiento cifrado
+                {t("security_title")}
               </p>
               <p className="text-[#6a9abf] text-[11px] leading-relaxed">
-                Tu firma tiene validez legal y está protegida con cifrado.
+                {t("security_desc")}
               </p>
             </div>
           </div>

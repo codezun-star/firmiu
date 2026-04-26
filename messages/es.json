@@ -12,7 +12,9 @@
     "plan_free": "Plan gratuito",
     "main_section": "MENÚ",
     "features": "Características",
-    "pricing": "Precios"
+    "pricing": "Precios",
+    "nosotros": "Nosotros",
+    "contacto": "Contacto"
   },
   "home": {
     "hero": {
@@ -106,22 +108,45 @@
       "free": {
         "name": "Gratis",
         "price": "0",
-        "features": ["3 documentos / mes", "1 usuario", "Firma básica con auditoría", "Soporte por correo"]
+        "features": [
+          "3 documentos / mes",
+          "1 usuario",
+          "Firma básica con auditoría",
+          "Soporte por correo"
+        ]
       },
       "starter": {
         "name": "Starter",
         "price": "15",
-        "features": ["30 documentos / mes", "1 usuario", "Auditoría completa + VPN", "Recordatorios automáticos", "Soporte prioritario"]
+        "features": [
+          "30 documentos / mes",
+          "1 usuario",
+          "Auditoría completa + VPN",
+          "Recordatorios automáticos",
+          "Soporte prioritario"
+        ]
       },
       "pro": {
         "name": "Pro",
         "price": "29",
-        "features": ["Documentos ilimitados", "1 usuario", "Tu logo en la página de firma", "Plantillas de documentos", "Soporte prioritario"]
+        "features": [
+          "100 documentos / mes",
+          "1 usuario",
+          "Tu logo en la página de firma",
+          "Plantillas de documentos",
+          "Soporte prioritario"
+        ]
       },
       "business": {
         "name": "Business",
         "price": "59",
-        "features": ["Documentos ilimitados", "Hasta 5 usuarios", "API pública + webhooks", "Manager de cuenta dedicado", "Soporte 24/7"]
+        "features": [
+          "Documentos ilimitados",
+          "Hasta 5 usuarios",
+          "API pública + webhooks",
+          "Manager de cuenta dedicado",
+          "Soporte 24/7"
+        ]
       },
       "cta_free": "Empezar gratis",
       "cta_paid": "Empezar ahora",
@@ -246,13 +271,21 @@
       "this_week": "Esta semana",
       "not_opened": "Sin abrir",
       "in_review": "En revisión",
-      "signed_today": "Firmados hoy"
+      "signed_today": "Firmados hoy",
+      "unsigned_old": "documentos sin firmar con más de 7 días"
     },
     "empty": {
       "title": "Sube tu primer documento",
       "description": "Envía un PDF a cualquier persona para que lo firme digitalmente.",
       "cta": "Nuevo documento"
-    }
+    },
+    "just_now": "Ahora mismo",
+    "time_min": "min",
+    "time_h": "h",
+    "time_d": "d",
+    "this_month_suffix": "este mes",
+    "no_activity": "Sin actividad aún",
+    "activity_signed": "firmó"
   },
   "documents": {
     "title": "Documentos",
@@ -349,7 +382,9 @@
       "generic": "Ocurrió un error inesperado. Intentá de nuevo."
     },
     "modal_title": "¡Firma completada!",
-    "modal_subtitle": "Tu documento fue firmado y registrado exitosamente. Gracias."
+    "modal_subtitle": "Tu documento fue firmado y registrado exitosamente. Gracias.",
+    "signing": "Firmando...",
+    "pdf_error": "No se pudo cargar el documento."
   },
   "sign_success": {
     "title": "¡Documento firmado!",
@@ -361,21 +396,19 @@
     "what_now": "¿Qué sigue?",
     "step1": "El remitente recibió una notificación con el documento firmado.",
     "step2": "El PDF firmado está disponible para descargar.",
-    "step3": "El registro de auditoría quedó guardado de forma segura."
+    "step3": "El registro de auditoría quedó guardado de forma segura.",
+    "security_title": "100% legal · Almacenamiento cifrado",
+    "security_desc": "Tu firma tiene validez legal y está protegida con cifrado."
   },
   "footer": {
     "rights": "Todos los derechos reservados.",
     "privacy": "Privacidad",
     "terms": "Términos",
     "product_title": "Producto",
-    "resources_title": "Recursos",
     "company_title": "Compañía",
     "feat_link": "Características",
     "pricing_link": "Precios",
-    "docs_link": "Documentación",
-    "api_link": "API",
     "about_link": "Nosotros",
-    "blog_link": "Blog",
     "contact_link": "Contacto",
     "tagline": "Firma digital simple para contadores, abogados e inmobiliarias en Latinoamérica."
   },
@@ -449,7 +482,7 @@
     "starter_f2": "Auditoría completa",
     "starter_f3": "Detección de VPN",
     "starter_f4": "Soporte prioritario",
-    "pro_f1": "Docs ilimitados",
+    "pro_f1": "100 docs / mes",
     "pro_f2": "Tu logo en la firma",
     "pro_f3": "Plantillas de documentos",
     "pro_f4": "Soporte prioritario",

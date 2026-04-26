@@ -12,7 +12,9 @@
     "plan_free": "Free plan",
     "main_section": "MENU",
     "features": "Features",
-    "pricing": "Pricing"
+    "pricing": "Pricing",
+    "nosotros": "About",
+    "contacto": "Contact"
   },
   "home": {
     "hero": {
@@ -106,22 +108,45 @@
       "free": {
         "name": "Free",
         "price": "0",
-        "features": ["3 documents / month", "1 user", "Basic signature with audit", "Email support"]
+        "features": [
+          "3 documents / month",
+          "1 user",
+          "Basic signature with audit",
+          "Email support"
+        ]
       },
       "starter": {
         "name": "Starter",
         "price": "15",
-        "features": ["30 documents / month", "1 user", "Full audit + VPN detection", "Automatic reminders", "Priority support"]
+        "features": [
+          "30 documents / month",
+          "1 user",
+          "Full audit + VPN detection",
+          "Automatic reminders",
+          "Priority support"
+        ]
       },
       "pro": {
         "name": "Pro",
         "price": "29",
-        "features": ["Unlimited documents", "1 user", "Your logo on signing page", "Document templates", "Priority support"]
+        "features": [
+          "100 documents / month",
+          "1 user",
+          "Your logo on signing page",
+          "Document templates",
+          "Priority support"
+        ]
       },
       "business": {
         "name": "Business",
         "price": "59",
-        "features": ["Unlimited documents", "Up to 5 users", "Public API + webhooks", "Dedicated account manager", "24/7 support"]
+        "features": [
+          "Unlimited documents",
+          "Up to 5 users",
+          "Public API + webhooks",
+          "Dedicated account manager",
+          "24/7 support"
+        ]
       },
       "cta_free": "Start free",
       "cta_paid": "Get started",
@@ -246,13 +271,21 @@
       "this_week": "This week",
       "not_opened": "Not opened",
       "in_review": "In review",
-      "signed_today": "Signed today"
+      "signed_today": "Signed today",
+      "unsigned_old": "unsigned documents older than 7 days"
     },
     "empty": {
       "title": "Upload your first document",
       "description": "Send a PDF to anyone for digital signing.",
       "cta": "New document"
-    }
+    },
+    "just_now": "Just now",
+    "time_min": "min",
+    "time_h": "h",
+    "time_d": "d",
+    "this_month_suffix": "this month",
+    "no_activity": "No activity yet",
+    "activity_signed": "signed"
   },
   "documents": {
     "title": "Documents",
@@ -349,7 +382,9 @@
       "generic": "An unexpected error occurred. Please try again."
     },
     "modal_title": "Signature complete!",
-    "modal_subtitle": "Your document was signed and recorded successfully. Thank you."
+    "modal_subtitle": "Your document was signed and recorded successfully. Thank you.",
+    "signing": "Signing...",
+    "pdf_error": "Could not load the document."
   },
   "sign_success": {
     "title": "Document signed!",
@@ -361,21 +396,19 @@
     "what_now": "What's next?",
     "step1": "The sender received a notification with the signed document.",
     "step2": "The signed PDF is available to download.",
-    "step3": "The audit trail has been saved securely."
+    "step3": "The audit trail has been saved securely.",
+    "security_title": "100% legal · Encrypted storage",
+    "security_desc": "Your signature is legally valid and protected with encryption."
   },
   "footer": {
     "rights": "All rights reserved.",
     "privacy": "Privacy",
     "terms": "Terms",
     "product_title": "Product",
-    "resources_title": "Resources",
     "company_title": "Company",
     "feat_link": "Features",
     "pricing_link": "Pricing",
-    "docs_link": "Documentation",
-    "api_link": "API",
     "about_link": "About",
-    "blog_link": "Blog",
     "contact_link": "Contact",
     "tagline": "Simple digital signing for accountants, lawyers, and real estate professionals in Latin America."
   },
@@ -449,7 +482,7 @@
     "starter_f2": "Full audit trail",
     "starter_f3": "VPN detection",
     "starter_f4": "Priority support",
-    "pro_f1": "Unlimited docs",
+    "pro_f1": "100 docs / month",
     "pro_f2": "Your logo on signing page",
     "pro_f3": "Document templates",
     "pro_f4": "Priority support",

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 interface NavbarProps {
@@ -10,8 +11,35 @@ interface NavbarProps {
 
 export default function Navbar({ locale }: NavbarProps) {
   const t = useTranslations("nav");
+  const pathname = usePathname();
   const prefix = locale === "es" ? "" : `/${locale}`;
   const [open, setOpen] = useState(false);
+
+  // Build locale-aware alternate URLs
+  const esPath = pathname.startsWith("/en") ? pathname.slice(3) || "/" : pathname;
+  const enPath = pathname.startsWith("/en") ? pathname : `/en${pathname}`;
+
+  const LangToggle = ({ mobile }: { mobile?: boolean }) => (
+    <div className={`flex items-center gap-1 ${mobile ? "text-sm" : "text-xs"}`}>
+      <Link
+        href={esPath}
+        className={`px-2 py-0.5 rounded transition-colors font-medium ${
+          locale === "es" ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
+        }`}
+      >
+        ES
+      </Link>
+      <span className="text-[#2d5a80]">|</span>
+      <Link
+        href={enPath}
+        className={`px-2 py-0.5 rounded transition-colors font-medium ${
+          locale === "en" ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
+        }`}
+      >
+        EN
+      </Link>
+    </div>
+  );
 
   return (
     <header className="sticky top-0 z-50 bg-[#1a3c5e] border-b border-white/10">
@@ -37,10 +65,24 @@ export default function Navbar({ locale }: NavbarProps) {
             >
               {t("pricing")}
             </a>
+            <a
+              href="#nosotros"
+              className="text-sm text-[#94b8d4] hover:text-white transition-colors"
+            >
+              {t("nosotros")}
+            </a>
+            <a
+              href="#contacto"
+              className="text-sm text-[#94b8d4] hover:text-white transition-colors"
+            >
+              {t("contacto")}
+            </a>
           </nav>
 
-          {/* Desktop CTAs */}
-          <div className="hidden md:flex items-center gap-2">
+          {/* Desktop: language toggle + CTAs */}
+          <div className="hidden md:flex items-center gap-3">
+            <LangToggle />
+            <div className="w-px h-4 bg-white/20" />
             <Link
               href={`${prefix}/login`}
               className="text-sm font-medium text-[#94b8d4] hover:text-white px-3 py-2 rounded-lg hover:bg-white/[0.06] transition-colors"
@@ -90,7 +132,25 @@ export default function Navbar({ locale }: NavbarProps) {
             >
               {t("pricing")}
             </a>
-            <div className="pt-3 mt-2 border-t border-white/10 flex flex-col gap-2">
+            <a
+              href="#nosotros"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2.5 text-sm text-[#94b8d4] hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+            >
+              {t("nosotros")}
+            </a>
+            <a
+              href="#contacto"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2.5 text-sm text-[#94b8d4] hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+            >
+              {t("contacto")}
+            </a>
+            <div className="pt-3 mt-2 border-t border-white/10 space-y-2">
+              {/* Language toggle in mobile */}
+              <div className="px-3 py-1">
+                <LangToggle mobile />
+              </div>
               <Link
                 href={`${prefix}/login`}
                 onClick={() => setOpen(false)}
