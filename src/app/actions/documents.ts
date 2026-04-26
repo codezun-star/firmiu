@@ -149,7 +149,7 @@ export async function uploadDocumentAction(
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({
-      from: "onboarding@resend.dev",
+      from: "Firmiu <noreply@firmiu.com>",
       to: correoDestinatario,
       subject: `${ownerName} te envió un documento para firmar`,
       html: `
