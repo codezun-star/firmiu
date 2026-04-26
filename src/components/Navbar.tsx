@@ -62,13 +62,13 @@ export default function Navbar({ locale }: NavbarProps) {
           {/* Desktop nav links */}
           <nav className="hidden md:flex items-center gap-6">
             <a
-              href="#como-funciona"
+              href={`${prefix}/#how-it-works`}
               className="text-sm text-[#94b8d4] hover:text-white transition-colors"
             >
               {t("features")}
             </a>
             <a
-              href="#precios"
+              href={`${prefix}/#pricing`}
               className="text-sm text-[#94b8d4] hover:text-white transition-colors"
             >
               {t("pricing")}
@@ -127,14 +127,14 @@ export default function Navbar({ locale }: NavbarProps) {
         {open && (
           <div className="md:hidden border-t border-white/10 py-3 space-y-0.5 pb-4">
             <a
-              href="#como-funciona"
+              href={`${prefix}/#how-it-works`}
               onClick={() => setOpen(false)}
               className="block px-3 py-2.5 text-sm text-[#94b8d4] hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
             >
               {t("features")}
             </a>
             <a
-              href="#precios"
+              href={`${prefix}/#pricing`}
               onClick={() => setOpen(false)}
               className="block px-3 py-2.5 text-sm text-[#94b8d4] hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
             >

@@ -34,12 +34,12 @@ export default function Footer({ locale }: FooterProps) {
             </p>
             <ul className="space-y-2.5">
               <li>
-                <a href="#como-funciona" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <a href={`${prefix}/#how-it-works`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("feat_link")}
                 </a>
               </li>
               <li>
-                <a href="#precios" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <a href={`${prefix}/#pricing`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("pricing_link")}
                 </a>
               </li>
