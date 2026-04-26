@@ -20,20 +20,19 @@ export async function getPaddle(): Promise<Paddle | undefined> {
 
 export async function openCheckout(
   priceId: string,
-  email: string
+  email: string,
+  userId: string
 ): Promise<void> {
-  console.log("openCheckout called:", { priceId, email });
   const paddle = await getPaddle();
 
   if (!paddle) {
-    console.error("Paddle no inicializado");
+    console.error("[paddle] not initialized");
     return;
   }
-
-  console.log("Paddle instance:", paddle);
 
   paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
     customer: { email },
+    customData: { owner_id: userId },
   });
 }

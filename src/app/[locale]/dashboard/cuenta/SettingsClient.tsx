@@ -140,7 +140,7 @@ export default function SettingsClient({
     console.log("Botón clickeado", { priceId, planKey });
     setCheckingOut(planKey);
     try {
-      await openCheckout(priceId, email);
+      await openCheckout(priceId, email, userId);
     } catch {
       toast.error(t("errors.generic"));
     } finally {

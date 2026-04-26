@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 interface PricingProps {
@@ -7,9 +9,25 @@ interface PricingProps {
 
 const planKeys = ["free", "starter", "pro", "business"] as const;
 
+const PRICE_IDS: Record<string, string | null> = {
+  free:     null,
+  starter:  process.env.NEXT_PUBLIC_PADDLE_PRICE_STARTER ?? null,
+  pro:      process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO ?? null,
+  business: process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS ?? null,
+};
+
 export default function Pricing({ locale }: PricingProps) {
   const t = useTranslations("home.pricing");
+  const router = useRouter();
   const prefix = locale === "es" ? "" : `/${locale}`;
+
+  function handlePlanClick(key: string) {
+    const priceId = PRICE_IDS[key];
+    if (priceId) {
+      localStorage.setItem("firmiu_pending_plan", priceId);
+    }
+    router.push(`${prefix}/register`);
+  }
 
   return (
     <section id="precios" className="py-20 bg-[#F8F9FA]">
@@ -78,8 +96,8 @@ export default function Pricing({ locale }: PricingProps) {
                   ))}
                 </ul>
 
-                <Link
-                  href={`${prefix}/register`}
+                <button
+                  onClick={() => handlePlanClick(key)}
                   className={`block w-full text-center py-2.5 px-4 rounded-[10px] text-sm font-semibold transition-colors ${
                     isPro
                       ? "bg-[#F97316] hover:bg-[#EA580C] text-white"
@@ -87,7 +105,7 @@ export default function Pricing({ locale }: PricingProps) {
                   }`}
                 >
                   {key === "free" ? t("cta_free") : t("cta_paid")}
-                </Link>
+                </button>
               </div>
             );
           })}

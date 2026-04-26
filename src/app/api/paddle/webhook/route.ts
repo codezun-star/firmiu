@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { event_type, data } = payload;
+  console.log("[paddle-webhook] event:", event_type, "sub:", data.id, "custom_data:", JSON.stringify(data.custom_data ?? null));
   const admin = createAdminClient();
 
   if (event_type === "subscription.created") {
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
     const ownerId  = data.custom_data?.owner_id;
 
     if (!ownerId) {
+      console.error("[paddle-webhook] subscription.created missing owner_id — customData:", data.custom_data);
       return NextResponse.json({ error: "Missing owner_id" }, { status: 400 });
     }
 
