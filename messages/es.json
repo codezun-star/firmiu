@@ -559,6 +559,33 @@
   "pending_plan": {
     "loading": "Preparando tu suscripción..."
   },
+  "about": {
+    "title": "Sobre Firmiu",
+    "subtitle": "Simplificamos la firma digital para toda Latinoamérica.",
+    "mission_title": "Nuestra misión",
+    "mission_body": "Firmiu nació para eliminar el proceso lento e ineficiente de imprimir, firmar a mano, escanear y reenviar documentos. Creemos que cualquier profesional en Latinoamérica merece una herramienta simple, segura y accesible para firmar documentos digitalmente.",
+    "for_who_title": "¿Para quién es Firmiu?",
+    "for_who_subtitle": "Diseñado para profesionales que necesitan firmas rápidas y confiables.",
+    "who_1": "Abogados y notarios",
+    "who_2": "Contadores y auditores",
+    "who_3": "Inmobiliarias y agentes",
+    "who_4": "Pequeños negocios y emprendedores",
+    "who_5": "Recursos humanos",
+    "values_title": "Nuestros valores",
+    "value_1_title": "Simplicidad",
+    "value_1_desc": "Sin complicaciones técnicas. Si lo puede usar un profesional sin conocimientos de tecnología, lo estamos haciendo bien.",
+    "value_2_title": "Seguridad",
+    "value_2_desc": "Auditoría completa en cada firma: IP, dispositivo, ubicación y fecha quedan registrados.",
+    "value_3_title": "Accesibilidad",
+    "value_3_desc": "Precios justos pensados para el mercado latinoamericano."
+  },
+  "contact": {
+    "title": "Contacto",
+    "subtitle": "¿Tenés alguna pregunta? Escribinos.",
+    "body": "Podés contactarnos directamente por correo:",
+    "email": "codezun@gmail.com",
+    "response_time": "Respondemos en menos de 24 horas"
+  },
   "firmas_page": {
     "title": "Firmas recibidas",
     "subtitle": "Historial de documentos firmados con audit trail completo",

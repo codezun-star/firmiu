@@ -53,14 +53,14 @@ export default function Footer({ locale }: FooterProps) {
             </p>
             <ul className="space-y-2.5">
               <li>
-                <a href="#nosotros" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <Link href={`${prefix}/nosotros`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("about_link")}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#contacto" className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <Link href={`${prefix}/contacto`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("contact_link")}
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

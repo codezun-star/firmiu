@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 interface NavbarProps {
@@ -12,32 +12,40 @@ interface NavbarProps {
 export default function Navbar({ locale }: NavbarProps) {
   const t = useTranslations("nav");
   const pathname = usePathname();
-  const prefix = locale === "es" ? "" : `/${locale}`;
+  const router = useRouter();
+  const isEnglish = pathname.startsWith("/en");
+  const prefix = isEnglish ? "/en" : "";
   const [open, setOpen] = useState(false);
 
-  // Build locale-aware alternate URLs
-  const esPath = pathname.startsWith("/en") ? pathname.slice(3) || "/" : pathname;
-  const enPath = pathname.startsWith("/en") ? pathname : `/en${pathname}`;
+  const switchLanguage = (targetLocale: string) => {
+    if (targetLocale === "es") {
+      const newPath = pathname.startsWith("/en") ? pathname.slice(3) || "/" : pathname;
+      router.push(newPath);
+    } else {
+      const newPath = pathname.startsWith("/en") ? pathname : "/en" + pathname;
+      router.push(newPath);
+    }
+  };
 
   const LangToggle = ({ mobile }: { mobile?: boolean }) => (
     <div className={`flex items-center gap-1 ${mobile ? "text-sm" : "text-xs"}`}>
-      <Link
-        href={esPath}
+      <button
+        onClick={() => switchLanguage("es")}
         className={`px-2 py-0.5 rounded transition-colors font-medium ${
-          locale === "es" ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
+          !isEnglish ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
         }`}
       >
         ES
-      </Link>
+      </button>
       <span className="text-[#2d5a80]">|</span>
-      <Link
-        href={enPath}
+      <button
+        onClick={() => switchLanguage("en")}
         className={`px-2 py-0.5 rounded transition-colors font-medium ${
-          locale === "en" ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
+          isEnglish ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
         }`}
       >
         EN
-      </Link>
+      </button>
     </div>
   );
 
@@ -65,18 +73,18 @@ export default function Navbar({ locale }: NavbarProps) {
             >
               {t("pricing")}
             </a>
-            <a
-              href="#nosotros"
+            <Link
+              href={`${prefix}/nosotros`}
               className="text-sm text-[#94b8d4] hover:text-white transition-colors"
             >
               {t("nosotros")}
-            </a>
-            <a
-              href="#contacto"
+            </Link>
+            <Link
+              href={`${prefix}/contacto`}
               className="text-sm text-[#94b8d4] hover:text-white transition-colors"
             >
               {t("contacto")}
-            </a>
+            </Link>
           </nav>
 
           {/* Desktop: language toggle + CTAs */}
@@ -132,20 +140,20 @@ export default function Navbar({ locale }: NavbarProps) {
             >
               {t("pricing")}
             </a>
-            <a
-              href="#nosotros"
+            <Link
+              href={`${prefix}/nosotros`}
               onClick={() => setOpen(false)}
               className="block px-3 py-2.5 text-sm text-[#94b8d4] hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
             >
               {t("nosotros")}
-            </a>
-            <a
-              href="#contacto"
+            </Link>
+            <Link
+              href={`${prefix}/contacto`}
               onClick={() => setOpen(false)}
               className="block px-3 py-2.5 text-sm text-[#94b8d4] hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
             >
               {t("contacto")}
-            </a>
+            </Link>
             <div className="pt-3 mt-2 border-t border-white/10 space-y-2">
               {/* Language toggle in mobile */}
               <div className="px-3 py-1">
