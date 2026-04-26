@@ -30,6 +30,8 @@ export async function openCheckout(
     return;
   }
 
+  console.log("[paddle] abriendo checkout con:", { priceId, email, userId });
+
   paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
     customer: { email },

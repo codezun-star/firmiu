@@ -21,6 +21,7 @@ export default function PendingPlanChecker({ email, userId, currentPlan }: Props
 
     localStorage.removeItem("firmiu_pending_plan");
     setShowOverlay(true);
+    console.log("[pending] userId:", userId, "email:", email, "plan:", pendingPlan);
 
     const timer = setTimeout(async () => {
       await openCheckout(pendingPlan, email, userId);

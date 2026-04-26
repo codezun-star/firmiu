@@ -137,7 +137,7 @@ export default function SettingsClient({
   }
 
   async function handleUpgrade(priceId: string, planKey: string) {
-    console.log("Botón clickeado", { priceId, planKey });
+    console.log("[settings] userId:", userId, "email:", email);
     setCheckingOut(planKey);
     try {
       await openCheckout(priceId, email, userId);

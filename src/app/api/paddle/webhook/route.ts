@@ -36,29 +36,51 @@ function verifySignature(rawBody: string, header: string, secret: string): boole
   }
 }
 
+interface WebhookPayload {
+  event_type: string;
+  data: {
+    id: string;
+    status?: string;
+    customer_id?: string;
+    customer?: { email?: string };
+    items?: Array<{ price: { id: string } }>;
+    current_billing_period?: { starts_at: string; ends_at: string };
+    custom_data?: { owner_id?: string } | null;
+  };
+}
+
+async function logWebhook(
+  admin: ReturnType<typeof createAdminClient>,
+  evento: string,
+  customData: unknown,
+  ownerId: string | undefined | null,
+  resultado: string
+) {
+  try {
+    await admin.from("webhook_logs").insert({
+      evento,
+      custom_data: JSON.stringify(customData),
+      owner_id: ownerId ?? null,
+      resultado,
+      creado_en: new Date().toISOString(),
+    });
+  } catch {
+    // tabla puede no existir todavía — ignorar
+  }
+}
+
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("paddle-signature") ?? "";
   const secret = process.env.PADDLE_WEBHOOK_SECRET ?? "";
 
-  // Verify signature when secret is configured
   if (secret) {
     if (!verifySignature(rawBody, signature, secret)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
   }
 
-  let payload: {
-    event_type: string;
-    data: {
-      id: string;
-      status?: string;
-      customer_id?: string;
-      items?: Array<{ price: { id: string } }>;
-      current_billing_period?: { starts_at: string; ends_at: string };
-      custom_data?: { owner_id?: string };
-    };
-  };
+  let payload: WebhookPayload;
 
   try {
     payload = JSON.parse(rawBody);
@@ -67,22 +89,45 @@ export async function POST(request: NextRequest) {
   }
 
   const { event_type, data } = payload;
-  console.log("[paddle-webhook] event:", event_type, "sub:", data.id, "custom_data:", JSON.stringify(data.custom_data ?? null));
   const admin = createAdminClient();
+
+  console.log("[paddle-webhook] event:", event_type);
+  console.log("[paddle-webhook] sub:", data.id);
+  console.log("[paddle-webhook] custom_data:", JSON.stringify(data.custom_data ?? null));
+  console.log("[paddle-webhook] customer:", JSON.stringify(data.customer ?? null));
 
   if (event_type === "subscription.created" || event_type === "subscription.activated") {
     const priceId  = data.items?.[0]?.price?.id ?? "";
     const planInfo = PRICE_PLAN[priceId] ?? { plan: "starter", limit: 30 };
-    const ownerId  = data.custom_data?.owner_id;
 
-    console.log("[paddle-webhook] body completo:", JSON.stringify({ event_type, data }, null, 2));
-    console.log("[paddle-webhook] custom_data:", JSON.stringify(data.custom_data ?? null));
-    console.log("[paddle-webhook] owner_id:", ownerId);
     console.log("[paddle-webhook] priceId:", priceId, "→ plan:", planInfo.plan);
+    console.log("[paddle-webhook] body completo:", JSON.stringify({ event_type, data }, null, 2));
+
+    let ownerId = data.custom_data?.owner_id;
+    console.log("[paddle-webhook] owner_id desde custom_data:", ownerId);
+
+    // Fallback: buscar usuario por email del cliente si owner_id no llegó
+    if (!ownerId) {
+      const customerEmail = data.customer?.email;
+      console.log("[paddle-webhook] owner_id null — buscando por email:", customerEmail);
+
+      if (customerEmail) {
+        try {
+          const { data: { users } } = await admin.auth.admin.listUsers();
+          const found = users?.find((u) => u.email === customerEmail);
+          ownerId = found?.id;
+          console.log("[paddle-webhook] owner_id encontrado por email:", ownerId);
+        } catch (e) {
+          console.error("[paddle-webhook] error buscando usuario por email:", e);
+        }
+      }
+    }
 
     if (!ownerId) {
-      console.error("[paddle-webhook] missing owner_id — customData:", data.custom_data);
-      return NextResponse.json({ error: "Missing owner_id" }, { status: 400 });
+      console.error("[paddle-webhook] no se pudo obtener owner_id — custom_data:", data.custom_data);
+      await logWebhook(admin, event_type, data.custom_data, null, "error: owner_id not found");
+      // Retornamos 200 para evitar reintentos de Paddle que nunca resolverán este caso
+      return NextResponse.json({ ok: true, warning: "owner_id_missing" });
     }
 
     try {
@@ -103,8 +148,12 @@ export async function POST(request: NextRequest) {
       );
       console.log("[paddle-webhook] upsert data:", JSON.stringify(upsertData));
       console.log("[paddle-webhook] upsert error:", JSON.stringify(error));
+
+      const resultado = error ? `error: ${error.message}` : "ok";
+      await logWebhook(admin, event_type, data.custom_data, ownerId, resultado);
     } catch (e) {
       console.error("[paddle-webhook] excepcion en upsert:", e);
+      await logWebhook(admin, event_type, data.custom_data, ownerId, `exception: ${String(e)}`);
     }
   }
 
@@ -118,7 +167,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (planInfo) {
-      updates.plan             = planInfo.plan;
+      updates.plan              = planInfo.plan;
       updates.limite_documentos = planInfo.limit;
     }
     if (data.current_billing_period) {
@@ -144,6 +193,5 @@ export async function POST(request: NextRequest) {
       .eq("paddle_subscription_id", data.id);
   }
 
-  // transaction.completed — no action needed beyond subscription events
   return NextResponse.json({ ok: true });
 }
