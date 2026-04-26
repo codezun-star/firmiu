@@ -3,45 +3,44 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
-interface NavbarProps {
-  locale: string;
-}
-
-export default function Navbar({ locale }: NavbarProps) {
+export default function Navbar() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const router = useRouter();
-  const isEnglish = pathname.startsWith("/en");
-  const prefix = isEnglish ? "/en" : "";
+  const locale = useLocale();
+  const isEN = locale === "en";
+  const prefix = isEN ? "/en" : "";
   const [open, setOpen] = useState(false);
 
-  const switchLanguage = (targetLocale: string) => {
-    if (targetLocale === "es") {
-      const newPath = pathname.startsWith("/en") ? pathname.slice(3) || "/" : pathname;
-      router.push(newPath);
+  const switchToLocale = (targetLocale: string) => {
+    if (targetLocale === locale) return;
+
+    let newPath: string;
+    if (targetLocale === "en") {
+      newPath = pathname.startsWith("/en") ? pathname : "/en" + pathname;
     } else {
-      const newPath = pathname.startsWith("/en") ? pathname : "/en" + pathname;
-      router.push(newPath);
+      newPath = pathname.startsWith("/en") ? pathname.slice(3) || "/" : pathname;
     }
+    router.push(newPath);
   };
 
   const LangToggle = ({ mobile }: { mobile?: boolean }) => (
     <div className={`flex items-center gap-1 ${mobile ? "text-sm" : "text-xs"}`}>
       <button
-        onClick={() => switchLanguage("es")}
+        onClick={() => switchToLocale("es")}
         className={`px-2 py-0.5 rounded transition-colors font-medium ${
-          !isEnglish ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
+          !isEN ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
         }`}
       >
         ES
       </button>
       <span className="text-[#2d5a80]">|</span>
       <button
-        onClick={() => switchLanguage("en")}
+        onClick={() => switchToLocale("en")}
         className={`px-2 py-0.5 rounded transition-colors font-medium ${
-          isEnglish ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
+          isEN ? "text-[#F97316]" : "text-[#94b8d4] hover:text-white"
         }`}
       >
         EN

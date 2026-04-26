@@ -45,7 +45,7 @@ export default function PrivacidadPage({ params: { locale } }: PrivacidadPagePro
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar locale={locale} />
+      <Navbar />
 
       {/* Page header */}
       <div className="bg-[#1a3c5e] py-14 px-4">
@@ -114,7 +114,7 @@ export default function PrivacidadPage({ params: { locale } }: PrivacidadPagePro
         </div>
       </main>
 
-      <Footer locale={locale} />
+      <Footer />
     </div>
   );
 }

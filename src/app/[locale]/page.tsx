@@ -135,7 +135,7 @@ export default async function HomePage({ params: { locale } }: HomePageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <div className="flex flex-col min-h-screen">
-        <Navbar locale={locale} />
+        <Navbar />
         <main className="flex-1">
           <Hero locale={locale} />
           <HowItWorks />
@@ -146,7 +146,7 @@ export default async function HomePage({ params: { locale } }: HomePageProps) {
           <FAQ />
           <CtaBanner locale={locale} />
         </main>
-        <Footer locale={locale} />
+        <Footer />
       </div>
     </>
   );

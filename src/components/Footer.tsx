@@ -1,13 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
-interface FooterProps {
-  locale: string;
-}
-
-export default function Footer({ locale }: FooterProps) {
+export default function Footer() {
   const t = useTranslations("footer");
-  const prefix = locale === "es" ? "" : `/${locale}`;
+  const locale = useLocale();
+  const prefix = locale === "en" ? "/en" : "";
 
   return (
     <footer className="bg-[#0f2640]">
@@ -73,18 +72,18 @@ export default function Footer({ locale }: FooterProps) {
           </p>
 
           <div className="flex items-center gap-5">
-            <a
+            <Link
               href={`${prefix}/privacidad`}
               className="text-[#4d7a9e] hover:text-white text-xs transition-colors"
             >
               {t("privacy")}
-            </a>
-            <a
+            </Link>
+            <Link
               href={`${prefix}/terminos`}
               className="text-[#4d7a9e] hover:text-white text-xs transition-colors"
             >
               {t("terms")}
-            </a>
+            </Link>
           </div>
         </div>
       </div>

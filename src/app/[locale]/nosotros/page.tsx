@@ -67,7 +67,7 @@ export default async function NosotrosPage({ params: { locale } }: NosotrosPageP
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar locale={locale} />
+      <Navbar />
 
       {/* Hero */}
       <div className="bg-[#1a3c5e] py-16 px-4">
@@ -150,7 +150,7 @@ export default async function NosotrosPage({ params: { locale } }: NosotrosPageP
         </div>
       </main>
 
-      <Footer locale={locale} />
+      <Footer />
     </div>
   );
 }
