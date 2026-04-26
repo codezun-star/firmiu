@@ -35,7 +35,7 @@ export default function CtaBanner({ locale }: CtaBannerProps) {
             </svg>
           </Link>
           <a
-            href="#precios"
+            href={`${prefix}/#planes`}
             className="inline-flex items-center justify-center gap-2 bg-white/[0.07] hover:bg-white/[0.12] text-white font-medium px-7 py-3 rounded-[11px] text-sm transition-colors border border-white/10"
           >
             {t("secondary")}

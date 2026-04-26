@@ -103,7 +103,7 @@ export default function Hero({ locale }: HeroProps) {
                 </svg>
               </Link>
               <a
-                href="#como-funciona"
+                href={`${prefix}/#como`}
                 className="inline-flex items-center justify-center gap-2 bg-white/[0.07] hover:bg-white/[0.12] text-white font-medium px-6 py-3 rounded-[11px] text-sm transition-colors border border-white/10"
               >
                 {t("secondary_cta")}
