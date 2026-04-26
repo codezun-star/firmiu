@@ -523,6 +523,9 @@
     "security_badge": "100% cifrado · Almacenamiento seguro · Sin venta de datos",
     "security_desc": "Tus documentos están protegidos con cifrado AES-256 en reposo y TLS en tránsito."
   },
+  "pending_plan": {
+    "loading": "Preparando tu suscripción..."
+  },
   "firmas_page": {
     "title": "Firmas recibidas",
     "subtitle": "Historial de documentos firmados con audit trail completo",

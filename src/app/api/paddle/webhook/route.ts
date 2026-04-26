@@ -70,31 +70,42 @@ export async function POST(request: NextRequest) {
   console.log("[paddle-webhook] event:", event_type, "sub:", data.id, "custom_data:", JSON.stringify(data.custom_data ?? null));
   const admin = createAdminClient();
 
-  if (event_type === "subscription.created") {
+  if (event_type === "subscription.created" || event_type === "subscription.activated") {
     const priceId  = data.items?.[0]?.price?.id ?? "";
     const planInfo = PRICE_PLAN[priceId] ?? { plan: "starter", limit: 30 };
     const ownerId  = data.custom_data?.owner_id;
 
+    console.log("[paddle-webhook] body completo:", JSON.stringify({ event_type, data }, null, 2));
+    console.log("[paddle-webhook] custom_data:", JSON.stringify(data.custom_data ?? null));
+    console.log("[paddle-webhook] owner_id:", ownerId);
+    console.log("[paddle-webhook] priceId:", priceId, "→ plan:", planInfo.plan);
+
     if (!ownerId) {
-      console.error("[paddle-webhook] subscription.created missing owner_id — customData:", data.custom_data);
+      console.error("[paddle-webhook] missing owner_id — customData:", data.custom_data);
       return NextResponse.json({ error: "Missing owner_id" }, { status: 400 });
     }
 
-    await admin.from("suscripciones").upsert(
-      {
-        owner_id:               ownerId,
-        paddle_subscription_id: data.id,
-        paddle_customer_id:     data.customer_id ?? null,
-        plan:                   planInfo.plan,
-        estado:                 mapStatus(data.status ?? "active"),
-        limite_documentos:      planInfo.limit,
-        documentos_mes:         0,
-        periodo_inicio:         data.current_billing_period?.starts_at ?? null,
-        periodo_fin:            data.current_billing_period?.ends_at ?? null,
-        actualizado_en:         new Date().toISOString(),
-      },
-      { onConflict: "owner_id" }
-    );
+    try {
+      const { data: upsertData, error } = await admin.from("suscripciones").upsert(
+        {
+          owner_id:               ownerId,
+          paddle_subscription_id: data.id,
+          paddle_customer_id:     data.customer_id ?? null,
+          plan:                   planInfo.plan,
+          estado:                 mapStatus(data.status ?? "active"),
+          limite_documentos:      planInfo.limit,
+          documentos_mes:         0,
+          periodo_inicio:         data.current_billing_period?.starts_at ?? null,
+          periodo_fin:            data.current_billing_period?.ends_at ?? null,
+          actualizado_en:         new Date().toISOString(),
+        },
+        { onConflict: "owner_id" }
+      );
+      console.log("[paddle-webhook] upsert data:", JSON.stringify(upsertData));
+      console.log("[paddle-webhook] upsert error:", JSON.stringify(error));
+    } catch (e) {
+      console.error("[paddle-webhook] excepcion en upsert:", e);
+    }
   }
 
   if (event_type === "subscription.updated") {

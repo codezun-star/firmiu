@@ -523,6 +523,9 @@
     "security_badge": "100% encrypted · Secure storage · No data sales",
     "security_desc": "Your documents are protected with AES-256 encryption at rest and TLS in transit."
   },
+  "pending_plan": {
+    "loading": "Preparing your subscription..."
+  },
   "firmas_page": {
     "title": "Received signatures",
     "subtitle": "Signed documents history with full audit trail",
