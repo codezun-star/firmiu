@@ -28,7 +28,6 @@ export default async function DashboardLayout({
     .toUpperCase()
     .slice(0, 2);
 
-  const email  = user?.email ?? "";
   const userId = user?.id ?? "";
 
   const { data: sub } = await supabase
@@ -42,7 +41,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       <DashboardNav locale={locale} userName={rawName} userInitials={userInitials} />
-      <PendingPlanChecker email={email} userId={userId} currentPlan={currentPlan} />
+      <PendingPlanChecker currentPlan={currentPlan} />
       <main className="md:ml-[200px] pt-[52px] min-h-screen">
         {children}
       </main>

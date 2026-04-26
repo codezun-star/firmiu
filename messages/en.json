@@ -620,5 +620,10 @@
     "next": "Next",
     "page_of": "Page {page} of {total}",
     "showing": "Showing {from}-{to} of {count} records"
+  },
+  "checkout": {
+    "loading": "Preparing your subscription...",
+    "go_dashboard": "Go to dashboard",
+    "error": "Checkout could not be started. Please try again."
   }
 }

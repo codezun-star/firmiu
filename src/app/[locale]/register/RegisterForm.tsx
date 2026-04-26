@@ -10,6 +10,7 @@ import GoogleButton from "@/components/GoogleButton";
 
 interface RegisterFormProps {
   locale: string;
+  plan?: string;
 }
 
 const initialState: AuthState = { errorKey: null, success: false };
@@ -26,7 +27,7 @@ function getPasswordStrength(password: string): number {
 
 const strengthColors = ["", "bg-red-500", "bg-orange-400", "bg-yellow-400", "bg-green-500"];
 
-export default function RegisterForm({ locale }: RegisterFormProps) {
+export default function RegisterForm({ locale, plan }: RegisterFormProps) {
   const t = useTranslations("auth");
   const prefix = locale === "es" ? "" : `/${locale}`;
   const [state, action] = useFormState(registerAction, initialState);
@@ -97,6 +98,7 @@ export default function RegisterForm({ locale }: RegisterFormProps) {
 
       <form action={action} className="space-y-3.5">
         <input type="hidden" name="locale" value={locale} />
+        {plan && <input type="hidden" name="plan" value={plan} />}
 
         {state.errorKey && (
           <div role="alert" className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2.5 rounded-[9px] flex items-start gap-2">

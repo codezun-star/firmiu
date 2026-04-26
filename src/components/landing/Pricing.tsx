@@ -24,9 +24,13 @@ export default function Pricing({ locale }: PricingProps) {
   function handlePlanClick(key: string) {
     const priceId = PRICE_IDS[key];
     if (priceId) {
+      // Cookie survives the Google OAuth redirect; localStorage for the email flow
+      document.cookie = `firmiu_pending_plan=${encodeURIComponent(priceId)}; path=/; max-age=3600; SameSite=Lax`;
       localStorage.setItem("firmiu_pending_plan", priceId);
+      router.push(`${prefix}/register?plan=${encodeURIComponent(priceId)}`);
+    } else {
+      router.push(`${prefix}/register`);
     }
-    router.push(`${prefix}/register`);
   }
 
   return (

@@ -58,6 +58,7 @@ export async function registerAction(
   const email = ((formData.get("email") as string) ?? "").trim().toLowerCase().slice(0, 320);
   const password = (formData.get("password") as string) ?? "";
   const locale = (formData.get("locale") as string) ?? "es";
+  const plan = (formData.get("plan") as string) ?? "";
   const terms = formData.get("terms") === "on";
 
   if (!nombre || !email || !password) {
@@ -87,6 +88,9 @@ export async function registerAction(
   }
 
   if (data.session) {
+    if (plan) {
+      redirect(`${getPrefix(locale)}/checkout?plan=${encodeURIComponent(plan)}`);
+    }
     redirect(`${getPrefix(locale)}/dashboard`);
   }
 

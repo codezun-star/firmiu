@@ -12,6 +12,9 @@ export async function getPaddle(): Promise<Paddle | undefined> {
       if (event.name === "checkout.completed") {
         window.dispatchEvent(new CustomEvent("firmiu:paddle-success"));
       }
+      if (event.name === "checkout.closed") {
+        window.dispatchEvent(new CustomEvent("firmiu:paddle-closed"));
+      }
     },
   });
 

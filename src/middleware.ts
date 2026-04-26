@@ -13,7 +13,7 @@ const intlMiddleware = createIntlMiddleware({
 });
 
 // ── Route definitions ─────────────────────────────────────────
-const PROTECTED = ["/dashboard", "/nueva-contrasena"];
+const PROTECTED = ["/dashboard", "/nueva-contrasena", "/checkout"];
 const AUTH_ONLY  = ["/login", "/register", "/recuperar"];
 
 type SBCookie = { name: string; value: string; options?: Partial<ResponseCookie> };
