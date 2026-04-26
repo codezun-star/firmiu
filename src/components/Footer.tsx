@@ -33,12 +33,12 @@ export default function Footer() {
             </p>
             <ul className="space-y-2.5">
               <li>
-                <a href={`${prefix}/#how-it-works`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <a href={`${prefix}/#como`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("feat_link")}
                 </a>
               </li>
               <li>
-                <a href={`${prefix}/#pricing`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <a href={`${prefix}/#planes`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("pricing_link")}
                 </a>
               </li>

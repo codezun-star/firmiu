@@ -30,7 +30,7 @@ export default function Pricing({ locale }: PricingProps) {
   }
 
   return (
-    <section id="pricing" className="py-20 bg-[#F8F9FA]">
+    <section id="planes" className="py-20 bg-[#F8F9FA]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <div className="text-center mb-14">
