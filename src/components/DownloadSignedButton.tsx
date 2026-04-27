@@ -6,11 +6,12 @@ import { downloadSignedPdfAction } from "@/app/actions/sign";
 interface Props {
   token: string;
   ctaLabel: string;
+  loadingLabel: string;
   hintLabel?: string;
   expiredLabel: string;
 }
 
-export default function DownloadSignedButton({ token, ctaLabel, hintLabel, expiredLabel }: Props) {
+export default function DownloadSignedButton({ token, ctaLabel, loadingLabel, hintLabel, expiredLabel }: Props) {
   const [loading, setLoading] = useState(false);
   const [expired, setExpired] = useState(false);
 
@@ -58,7 +59,7 @@ export default function DownloadSignedButton({ token, ctaLabel, hintLabel, expir
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
         )}
-        {loading ? "Descargando..." : ctaLabel}
+        {loading ? loadingLabel : ctaLabel}
       </button>
       {hintLabel && !loading && (
         <p className="text-xs text-[#9CA3AF] mt-2">{hintLabel}</p>

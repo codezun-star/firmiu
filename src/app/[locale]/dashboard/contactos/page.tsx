@@ -14,6 +14,9 @@ export default async function ContactosPage({ params: { locale }, searchParams }
 
   const supabase = createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id ?? "";
+
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10));
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -21,6 +24,7 @@ export default async function ContactosPage({ params: { locale }, searchParams }
   const { data: contactos, count: totalCount } = await supabase
     .from("contactos")
     .select("id, nombre, correo, empresa, creado_en", { count: "exact" })
+    .eq("owner_id", userId)
     .eq("oculto", false)
     .order("nombre", { ascending: true })
     .range(from, to);

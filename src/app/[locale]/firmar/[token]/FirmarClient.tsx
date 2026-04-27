@@ -403,6 +403,7 @@ function AlreadySigned({
           <DownloadSignedButton
             token={token}
             ctaLabel={t("already_signed_download")}
+            loadingLabel={t("already_signed_loading")}
             expiredLabel={t("already_signed_expired")}
           />
 

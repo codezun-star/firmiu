@@ -60,6 +60,7 @@ export default function ExitoPage({ params: { locale }, searchParams }: ExitoPag
               <DownloadSignedButton
                 token={token}
                 ctaLabel={t("download_cta")}
+                loadingLabel={t("download_loading")}
                 hintLabel={t("download_hint")}
                 expiredLabel={t("download_expired")}
               />

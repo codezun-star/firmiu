@@ -439,6 +439,8 @@ export async function signDocumentAction({
 export async function downloadSignedPdfAction(
   token: string
 ): Promise<DownloadResult> {
+  if (!isValidUUID(token)) return { url: null, errorKey: "not_found" };
+
   const admin = createAdminClient();
 
   const { data: doc } = await admin
