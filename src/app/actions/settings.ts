@@ -92,6 +92,61 @@ export async function deleteAccountAction(): Promise<DeleteAccountResult> {
   }
 }
 
+export interface CancelSubscriptionResult {
+  success?: boolean;
+  errorKey?: string;
+}
+
+export async function cancelSubscriptionAction(): Promise<CancelSubscriptionResult> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { errorKey: "not_authenticated" };
+
+  const admin = createAdminClient();
+
+  const { data: sub } = await admin
+    .from("suscripciones")
+    .select("paddle_subscription_id, plan")
+    .eq("owner_id", user.id)
+    .single();
+
+  if (!sub?.paddle_subscription_id) return { errorKey: "no_subscription" };
+
+  const paddleBase = process.env.NEXT_PUBLIC_PADDLE_ENV === "production"
+    ? "https://api.paddle.com"
+    : "https://sandbox-api.paddle.com";
+
+  try {
+    const response = await fetch(
+      `${paddleBase}/subscriptions/${sub.paddle_subscription_id}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.PADDLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ effective_from: "next_billing_period" }),
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error("[cancelSubscription] Paddle error:", err);
+      return { errorKey: "paddle_error" };
+    }
+
+    await admin
+      .from("suscripciones")
+      .update({ estado: "canceling" })
+      .eq("owner_id", user.id);
+
+    return { success: true };
+  } catch (e) {
+    console.error("[cancelSubscription]", e);
+    return { errorKey: "cancel_failed" };
+  }
+}
+
 export async function updatePasswordAction(formData: FormData): Promise<SettingsResult> {
   const password = ((formData.get("password") as string) ?? "").slice(0, 128);
   const confirm  = ((formData.get("confirm")  as string) ?? "").slice(0, 128);

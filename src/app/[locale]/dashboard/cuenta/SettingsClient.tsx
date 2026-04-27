@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { updateProfileAction, updatePasswordAction, deleteAccountAction } from "@/app/actions/settings";
+import { updateProfileAction, updatePasswordAction, deleteAccountAction, cancelSubscriptionAction } from "@/app/actions/settings";
 import { createClient } from "@/lib/supabase/client";
 import { openCheckout } from "@/lib/paddle";
 import { toast } from "@/lib/toast";
@@ -17,6 +17,7 @@ interface Props {
   docsThisMonth: number;
   plan: string;
   docsLimit: number;
+  estado: string;
 }
 
 function initials(name: string) {
@@ -81,6 +82,7 @@ export default function SettingsClient({
   docsThisMonth,
   plan,
   docsLimit,
+  estado,
 }: Props) {
   const t = useTranslations("settings");
   const router = useRouter();
@@ -106,6 +108,10 @@ export default function SettingsClient({
 
   // Checkout state
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
+
+  // Cancel subscription state
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
 
   // Delete account state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -140,6 +146,24 @@ export default function SettingsClient({
         toast.error(t(`errors.${result.error}` as Parameters<typeof t>[0]));
       }
     });
+  }
+
+  async function handleCancelSubscription() {
+    setIsCanceling(true);
+    try {
+      const result = await cancelSubscriptionAction();
+      if (result.success) {
+        toast.success(t("cancel_sub_success"));
+        setShowCancelConfirm(false);
+        router.refresh();
+      } else {
+        toast.error(t("cancel_sub_error"));
+      }
+    } catch {
+      toast.error(t("cancel_sub_error"));
+    } finally {
+      setIsCanceling(false);
+    }
   }
 
   async function handleDeleteAccount() {
@@ -279,6 +303,60 @@ export default function SettingsClient({
               }}
             />
           </div>
+
+          {/* Cancel subscription — only for paid plans */}
+          {plan !== "free" && (
+            <div className="mb-6">
+              {estado === "canceling" ? (
+                <div className="flex items-start gap-2.5 p-3 rounded-[10px] bg-[#FFF7ED] border border-[#FED7AA]">
+                  <span className="inline-flex items-center shrink-0 mt-0.5 text-[10px] font-bold uppercase tracking-wider text-[#F97316] bg-[#FED7AA] px-2 py-0.5 rounded-full whitespace-nowrap">
+                    {t("cancel_sub_pending")}
+                  </span>
+                  <p className="text-[12px] text-[#92400E]">{t("cancel_sub_pending_desc")}</p>
+                </div>
+              ) : estado === "active" ? (
+                !showCancelConfirm ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[12px] text-[#9CA3AF]">{t("cancel_sub_question")}</p>
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="shrink-0 text-[12px] font-medium text-[#EF4444] hover:text-[#DC2626] underline underline-offset-2 transition-colors"
+                    >
+                      {t("cancel_sub")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-[10px] bg-[#FFF5F5] border border-[#FCA5A5] space-y-3">
+                    <p className="text-[12px] text-[#374151]">{t("cancel_sub_confirm")}</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCancelConfirm(false)}
+                        disabled={isCanceling}
+                        className="flex-1 py-1.5 text-[12px] font-medium text-[#6B7280] hover:text-[#111827] border-[0.5px] border-[#E5E7EB] hover:border-[#D1D5DB] rounded-lg transition-colors disabled:opacity-60"
+                      >
+                        {t("cancel_sub_no")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelSubscription}
+                        disabled={isCanceling}
+                        className="flex-1 py-1.5 text-[12px] font-semibold text-white bg-[#EF4444] hover:bg-[#DC2626] rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+                      >
+                        {isCanceling && (
+                          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        )}
+                        {t("cancel_sub_yes")}
+                      </button>
+                    </div>
+                  </div>
+                )
+              ) : null}
+            </div>
+          )}
 
           {/* Plan grid */}
           <p className="text-[13px] font-semibold text-[#111827] mb-3">{t("upgrade")}</p>

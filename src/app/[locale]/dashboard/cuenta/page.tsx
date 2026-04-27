@@ -36,9 +36,10 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
     .eq("owner_id", userId)
     .maybeSingle();
 
-  const activeSub  = sub?.estado === "active" ? sub : null;
-  const plan       = activeSub?.plan ?? "free";
-  const docsLimit  = activeSub?.limite_documentos ?? 3;
+  const isPaidActive = sub?.estado === "active" || sub?.estado === "canceling";
+  const plan         = isPaidActive ? (sub?.plan ?? "free") : "free";
+  const docsLimit    = isPaidActive ? (sub?.limite_documentos ?? 3) : 3;
+  const estado       = sub?.estado ?? "none";
 
   return (
     <SettingsClient
@@ -50,6 +51,7 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
       docsThisMonth={docsThisMonth ?? 0}
       plan={plan}
       docsLimit={docsLimit}
+      estado={estado}
     />
   );
 }
