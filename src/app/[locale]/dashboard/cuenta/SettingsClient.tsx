@@ -37,7 +37,7 @@ const PLANS = [
     bg: "#F9FAFB",
     border: "#E5E7EB",
     popular: false,
-    featureKeys: ["free_f1", "free_f2", "free_f3"],
+    featureKeys: ["free_f1", "free_f2", "free_f3", "free_f4", "free_f5"],
   },
   {
     key: "starter",
@@ -47,7 +47,7 @@ const PLANS = [
     bg: "#EFF6FF",
     border: "#BFDBFE",
     popular: false,
-    featureKeys: ["starter_f1", "starter_f2", "starter_f3"],
+    featureKeys: ["starter_f1", "starter_f2", "starter_f3", "starter_f4", "starter_f5", "starter_f6", "starter_f7"],
   },
   {
     key: "pro",
@@ -57,7 +57,7 @@ const PLANS = [
     bg: "#1a3c5e",
     border: "#1a3c5e",
     popular: true,
-    featureKeys: ["pro_f1", "pro_f2", "pro_f3", "pro_f4"],
+    featureKeys: ["pro_f1", "pro_f2", "pro_f3", "pro_f4", "pro_f5"],
   },
   {
     key: "business",
@@ -67,7 +67,7 @@ const PLANS = [
     bg: "#F5F3FF",
     border: "#DDD6FE",
     popular: false,
-    featureKeys: ["business_f1", "business_f2", "business_f3", "business_f4", "business_f5"],
+    featureKeys: ["business_f1", "business_f2", "business_f3", "business_f4", "business_f5", "business_f6"],
   },
 ] as const;
 

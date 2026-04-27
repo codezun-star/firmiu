@@ -111,6 +111,8 @@
         "features": [
           "3 documents / month",
           "1 user",
+          "Signature with basic audit",
+          "Download signed PDF",
           "Email support"
         ]
       },
@@ -120,6 +122,10 @@
         "features": [
           "30 documents / month",
           "1 user",
+          "Full audit trail",
+          "VPN detection",
+          "Download signed PDF",
+          "Saved contacts",
           "Priority support"
         ]
       },
@@ -129,6 +135,7 @@
         "features": [
           "100 documents / month",
           "1 user",
+          "Everything in Starter",
           "Automatic 48h reminders",
           "Priority support"
         ]
@@ -139,8 +146,9 @@
         "features": [
           "Unlimited documents",
           "Up to 5 users",
-          "Automatic reminders",
+          "Everything in Pro",
           "Public API + webhooks",
+          "Dedicated account manager",
           "24/7 support"
         ]
       },
@@ -152,7 +160,6 @@
       "included_ip": "IP, device and location tracking",
       "included_datetime": "Certified date and time of signing",
       "included_pdf": "Downloadable audit PDF",
-      "included_vpn": "VPN detection when applicable",
       "reminder_feature": "Automatic 48h reminders"
     },
     "faq": {
@@ -496,19 +503,27 @@
     "plan_limits": "Plan limit",
     "free_f1": "3 documents / month",
     "free_f2": "1 user",
-    "free_f3": "Email support",
+    "free_f3": "Signature with basic audit",
+    "free_f4": "Download signed PDF",
+    "free_f5": "Email support",
     "starter_f1": "30 documents / month",
     "starter_f2": "1 user",
-    "starter_f3": "Priority support",
+    "starter_f3": "Full audit trail",
+    "starter_f4": "VPN detection",
+    "starter_f5": "Download signed PDF",
+    "starter_f6": "Saved contacts",
+    "starter_f7": "Priority support",
     "pro_f1": "100 documents / month",
     "pro_f2": "1 user",
-    "pro_f3": "Automatic 48h reminders",
-    "pro_f4": "Priority support",
+    "pro_f3": "Everything in Starter",
+    "pro_f4": "Automatic 48h reminders",
+    "pro_f5": "Priority support",
     "business_f1": "Unlimited documents",
     "business_f2": "Up to 5 users",
-    "business_f3": "Automatic reminders",
+    "business_f3": "Everything in Pro",
     "business_f4": "Public API + webhooks",
-    "business_f5": "24/7 support",
+    "business_f5": "Dedicated account manager",
+    "business_f6": "24/7 support",
     "danger_title": "Danger zone",
     "delete_account": "Delete my account",
     "delete_desc": "Permanently delete your account and all your documents.",

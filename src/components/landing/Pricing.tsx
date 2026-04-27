@@ -120,8 +120,8 @@ export default function Pricing({ locale }: PricingProps) {
           <p className="text-center text-sm font-semibold text-[#374151] mb-5">
             {t("included_title")}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {(["included_legal", "included_ip", "included_datetime", "included_pdf", "included_vpn"] as const).map((key) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(["included_legal", "included_ip", "included_datetime", "included_pdf"] as const).map((key) => (
               <div key={key} className="flex items-center gap-2.5">
                 <svg
                   className="w-4 h-4 shrink-0 text-[#F97316]"

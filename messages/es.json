@@ -111,6 +111,8 @@
         "features": [
           "3 documentos / mes",
           "1 usuario",
+          "Firma con auditoría básica",
+          "Descarga del PDF firmado",
           "Soporte por correo"
         ]
       },
@@ -120,6 +122,10 @@
         "features": [
           "30 documentos / mes",
           "1 usuario",
+          "Auditoría completa",
+          "Detección de VPN",
+          "Descarga del PDF firmado",
+          "Contactos guardados",
           "Soporte prioritario"
         ]
       },
@@ -129,6 +135,7 @@
         "features": [
           "100 documentos / mes",
           "1 usuario",
+          "Todo lo del Starter",
           "Recordatorios automáticos a 48h",
           "Soporte prioritario"
         ]
@@ -139,8 +146,9 @@
         "features": [
           "Documentos ilimitados",
           "Hasta 5 usuarios",
-          "Recordatorios automáticos",
+          "Todo lo del Pro",
           "API pública + webhooks",
+          "Manager de cuenta dedicado",
           "Soporte 24/7"
         ]
       },
@@ -152,7 +160,6 @@
       "included_ip": "Registro de IP, dispositivo y ubicación",
       "included_datetime": "Fecha y hora certificada del firmante",
       "included_pdf": "PDF con auditoría descargable",
-      "included_vpn": "Detección de VPN si aplica",
       "reminder_feature": "Recordatorios automáticos a 48h"
     },
     "faq": {
@@ -496,19 +503,27 @@
     "plan_limits": "Límite del plan",
     "free_f1": "3 documentos / mes",
     "free_f2": "1 usuario",
-    "free_f3": "Soporte por correo",
+    "free_f3": "Firma con auditoría básica",
+    "free_f4": "Descarga del PDF firmado",
+    "free_f5": "Soporte por correo",
     "starter_f1": "30 documentos / mes",
     "starter_f2": "1 usuario",
-    "starter_f3": "Soporte prioritario",
+    "starter_f3": "Auditoría completa",
+    "starter_f4": "Detección de VPN",
+    "starter_f5": "Descarga del PDF firmado",
+    "starter_f6": "Contactos guardados",
+    "starter_f7": "Soporte prioritario",
     "pro_f1": "100 documentos / mes",
     "pro_f2": "1 usuario",
-    "pro_f3": "Recordatorios automáticos a 48h",
-    "pro_f4": "Soporte prioritario",
+    "pro_f3": "Todo lo del Starter",
+    "pro_f4": "Recordatorios automáticos a 48h",
+    "pro_f5": "Soporte prioritario",
     "business_f1": "Documentos ilimitados",
     "business_f2": "Hasta 5 usuarios",
-    "business_f3": "Recordatorios automáticos",
+    "business_f3": "Todo lo del Pro",
     "business_f4": "API pública + webhooks",
-    "business_f5": "Soporte 24/7",
+    "business_f5": "Manager de cuenta dedicado",
+    "business_f6": "Soporte 24/7",
     "danger_title": "Zona de riesgo",
     "delete_account": "Eliminar mi cuenta",
     "delete_desc": "Elimina tu cuenta y todos tus documentos de forma permanente.",
