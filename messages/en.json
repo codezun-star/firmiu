@@ -641,7 +641,11 @@
   "checkout": {
     "loading": "Preparing your subscription...",
     "go_dashboard": "Go to dashboard",
-    "error": "Checkout could not be started. Please try again."
+    "error": "Checkout could not be started. Please try again.",
+    "account_ready": "Your account is ready",
+    "free_plan_msg": "You're on the free plan with 3 documents per month.",
+    "upgrade_anytime": "You can upgrade anytime.",
+    "see_plans": "See plans"
   },
   "refund": {
     "meta_keywords": "firmiu refund policy, digital signature subscription cancellation, electronic signature refund, cancel firmiu plan",

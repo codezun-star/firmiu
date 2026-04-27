@@ -111,7 +111,7 @@ export default function NuevoPage({ params: { locale }, searchParams }: NuevoPag
       </div>
 
       {/* ── Two-column layout ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start max-w-4xl">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start max-w-4xl mx-auto">
         <NuevoForm
           locale={locale}
           defaultNombre={searchParams.nombre ?? ""}

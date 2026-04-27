@@ -641,7 +641,11 @@
   "checkout": {
     "loading": "Preparando tu suscripción...",
     "go_dashboard": "Ir al dashboard",
-    "error": "No se pudo iniciar el checkout. Intenta de nuevo."
+    "error": "No se pudo iniciar el checkout. Intenta de nuevo.",
+    "account_ready": "Tu cuenta está lista",
+    "free_plan_msg": "Estás en el plan gratuito con 3 documentos por mes.",
+    "upgrade_anytime": "Podés activar un plan cuando quieras.",
+    "see_plans": "Ver planes"
   },
   "refund": {
     "meta_keywords": "política de reembolsos firmiu, cancelación suscripción firma digital, reembolso firma electrónica, cancelar plan firmiu",

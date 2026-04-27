@@ -20,19 +20,27 @@ export default function CheckoutClient({ locale, priceId, userEmail, userId }: P
   const prefix = locale === "es" ? "" : `/${locale}`;
 
   const [showFallback, setShowFallback] = useState(false);
+  const [showCancelScreen, setShowCancelScreen] = useState(false);
 
   useEffect(() => {
-    let redirected = false;
+    let done = false;
 
-    const handleDone = () => {
-      if (!redirected) {
-        redirected = true;
+    const handleSuccess = () => {
+      if (!done) {
+        done = true;
         router.push(`${prefix}/dashboard`);
       }
     };
 
-    window.addEventListener("firmiu:paddle-success", handleDone);
-    window.addEventListener("firmiu:paddle-closed", handleDone);
+    const handleClosed = () => {
+      if (!done) {
+        done = true;
+        setShowCancelScreen(true);
+      }
+    };
+
+    window.addEventListener("firmiu:paddle-success", handleSuccess);
+    window.addEventListener("firmiu:paddle-closed", handleClosed);
 
     let paddleOpened = false;
 
@@ -53,11 +61,50 @@ export default function CheckoutClient({ locale, priceId, userEmail, userId }: P
     return () => {
       clearTimeout(openTimer);
       clearTimeout(fallbackTimer);
-      window.removeEventListener("firmiu:paddle-success", handleDone);
-      window.removeEventListener("firmiu:paddle-closed", handleDone);
+      window.removeEventListener("firmiu:paddle-success", handleSuccess);
+      window.removeEventListener("firmiu:paddle-closed", handleClosed);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (showCancelScreen) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6">
+        <div className="w-full max-w-sm flex flex-col items-center text-center gap-5">
+          <Logo locale={locale} />
+
+          {/* Info icon */}
+          <div className="w-16 h-16 rounded-full bg-[#EFF6FF] flex items-center justify-center">
+            <svg className="w-8 h-8 text-[#1a3c5e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-[22px] font-bold text-[#111827]">{t("account_ready")}</h1>
+            <p className="text-[14px] text-[#6B7280]">{t("free_plan_msg")}</p>
+            <p className="text-[13px] text-[#9CA3AF]">{t("upgrade_anytime")}</p>
+          </div>
+
+          <div className="flex flex-col gap-3 w-full pt-1">
+            <Link
+              href={`${prefix}/dashboard/cuenta`}
+              className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white font-semibold py-3 px-4 rounded-[9px] transition-colors text-sm text-center"
+            >
+              {t("see_plans")}
+            </Link>
+            <Link
+              href={`${prefix}/dashboard`}
+              className="w-full border border-[#E5E7EB] hover:border-[#D1D5DB] text-[#374151] font-medium py-3 px-4 rounded-[9px] transition-colors text-sm text-center"
+            >
+              {t("go_dashboard")}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-6 p-6">

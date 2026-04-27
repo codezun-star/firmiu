@@ -42,7 +42,7 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
   return (
     <div className="min-h-screen flex">
       {/* ── Left panel (hidden on mobile) ─────────────────── */}
-      <div className="hidden md:flex md:w-[220px] lg:w-[300px] bg-[#1a3c5e] flex-col relative overflow-hidden shrink-0">
+      <div className="hidden lg:flex w-1/2 bg-[#1a3c5e] flex-col relative overflow-hidden shrink-0">
         {/* Decorative circles */}
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full border border-white/5 bg-white/[0.02]" />
         <div className="absolute top-32 -right-8 w-36 h-36 rounded-full border border-[#F97316]/10 bg-[#F97316]/[0.04]" />
@@ -81,11 +81,11 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
       </div>
 
       {/* ── Right column ──────────────────────────────────── */}
-      <div className="flex-1 bg-[#F8F9FA] flex items-center justify-center p-6 min-h-screen">
+      <div className="w-full lg:w-1/2 bg-[#F8F9FA] flex items-center justify-center p-6 min-h-screen">
         {/* Inner wrapper — stacks logo + card on mobile, just card on desktop */}
         <div className="w-full max-w-[340px] lg:max-w-sm">
           {/* Mobile logo */}
-          <div className="md:hidden flex justify-center mb-8">
+          <div className="lg:hidden flex justify-center mb-8">
             <p className="text-2xl font-medium tracking-tight">
               <span className="text-[#1a3c5e]">firm</span>
               <span className="text-[#F97316]">iu</span>

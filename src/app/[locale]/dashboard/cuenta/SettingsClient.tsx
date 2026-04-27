@@ -152,7 +152,7 @@ export default function SettingsClient({
   const barColor = pct >= 100 ? "#EF4444" : pct >= 66 ? "#F97316" : "#10B981";
 
   return (
-    <div className="p-5 md:p-6 max-w-2xl space-y-5">
+    <div className="p-5 md:p-6 max-w-2xl mx-auto space-y-5">
 
       {/* ── Profile card ── */}
       <div className="bg-white rounded-[14px] border-[0.5px] border-[#E5E7EB]">
