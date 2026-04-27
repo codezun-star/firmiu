@@ -5,9 +5,15 @@ let paddleInstance: Paddle | undefined;
 export async function getPaddle(): Promise<Paddle | undefined> {
   if (paddleInstance) return paddleInstance;
 
+  const env = process.env.NEXT_PUBLIC_PADDLE_ENV;
+  const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
+
+  console.log("[paddle] environment:", env);
+  console.log("[paddle] token prefix:", token?.slice(0, 10));
+
   paddleInstance = await initializePaddle({
-    environment: "sandbox",
-    token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN!,
+    environment: env === "production" ? "production" : "sandbox",
+    token: token!,
     eventCallback(event) {
       if (event.name === "checkout.completed") {
         window.dispatchEvent(new CustomEvent("firmiu:paddle-success"));
@@ -26,15 +32,12 @@ export async function openCheckout(
   email: string,
   userId: string
 ): Promise<void> {
+  console.log("[paddle] abriendo checkout con:", { priceId, email, userId });
   const paddle = await getPaddle();
-
   if (!paddle) {
-    console.error("[paddle] not initialized");
+    console.error("[paddle] no se pudo inicializar");
     return;
   }
-
-  console.log("[paddle] abriendo checkout con:", { priceId, email, userId });
-
   paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
     customer: { email },
