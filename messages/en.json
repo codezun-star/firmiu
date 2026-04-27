@@ -228,7 +228,11 @@
       "login_action": "Sign in",
       "success_title": "Check your email!",
       "success_detail": "We sent a verification link to",
-      "success_note": "Once verified, you can sign in to your account."
+      "success_note": "Once verified, you can sign in to your account.",
+      "placeholder_name": "John",
+      "placeholder_lastname": "Smith",
+      "placeholder_email": "john@company.com",
+      "placeholder_password": "Minimum 8 characters"
     },
     "login": {
       "meta_title": "Sign In",
@@ -241,7 +245,8 @@
       "forgot_link": "Forgot your password?",
       "submit": "Sign in",
       "register_link": "Don't have an account?",
-      "register_action": "Sign up free"
+      "register_action": "Sign up free",
+      "placeholder_email": "john@company.com"
     },
     "forgot_password": {
       "title": "Recover access",
@@ -353,6 +358,9 @@
     "pdf_section_desc": "The signer will view this PDF in their browser.",
     "recipient_section": "Recipient",
     "recipient_section_desc": "They will receive an email with the signing link.",
+    "placeholder_title": "Services contract.pdf",
+    "placeholder_name": "Jane Smith",
+    "placeholder_email": "jane@company.com",
     "what_next_title": "What happens next?",
     "what_next_1": "The recipient receives an email with a unique link and security code.",
     "what_next_2": "They sign the document from any device without installing anything.",
@@ -453,6 +461,10 @@
     "hide": "Hide",
     "hide_confirm": "Hide this contact? It will only disappear from your panel, not be deleted.",
     "hide_success": "Contact hidden",
+    "placeholder_name": "Full name",
+    "placeholder_email": "email@company.com",
+    "placeholder_company": "Company Inc. (optional)",
+    "placeholder_search": "Search contacts...",
     "empty_title": "No contacts yet",
     "empty_desc": "Add contacts to send documents faster.",
     "errors": {
@@ -526,7 +538,18 @@
     "business_f6": "24/7 support",
     "danger_title": "Danger zone",
     "delete_account": "Delete my account",
-    "delete_desc": "Permanently delete your account and all your documents.",
+    "delete_desc": "This action is permanent and cannot be undone.",
+    "delete_confirm_word": "DELETE",
+    "delete_type_confirm": "Type DELETE to confirm",
+    "delete_confirm_title": "Are you sure?",
+    "delete_what_happens": "What will happen?",
+    "delete_consequence_1": "Your account will be permanently deleted",
+    "delete_consequence_2": "Your signed documents will be kept for legal reasons",
+    "delete_consequence_3": "Your subscription will be cancelled immediately",
+    "delete_consequence_4": "You will not receive a refund for the current period",
+    "deleting": "Deleting your account...",
+    "delete_error": "Could not delete account. Please contact support.",
+    "delete_cancel": "Cancel",
     "errors": {
       "name_required": "Name cannot be empty.",
       "password_short": "Password must be at least 6 characters.",

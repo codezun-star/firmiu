@@ -78,7 +78,7 @@ export default function LoginForm({ locale, oauthError }: LoginFormProps) {
             autoComplete="email"
             required
             className="w-full px-3 py-2.5 rounded-[9px] border border-[#E5E7EB] text-sm bg-white text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10 transition-colors"
-            placeholder="juan@empresa.com"
+            placeholder={t("login.placeholder_email")}
           />
         </div>
 

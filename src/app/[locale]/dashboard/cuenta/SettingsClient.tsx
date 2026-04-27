@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { updateProfileAction, updatePasswordAction } from "@/app/actions/settings";
+import { updateProfileAction, updatePasswordAction, deleteAccountAction } from "@/app/actions/settings";
+import { createClient } from "@/lib/supabase/client";
 import { openCheckout } from "@/lib/paddle";
 import { toast } from "@/lib/toast";
 
@@ -106,6 +107,11 @@ export default function SettingsClient({
   // Checkout state
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
 
+  // Delete account state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
   function handleProfileSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -134,6 +140,25 @@ export default function SettingsClient({
         toast.error(t(`errors.${result.error}` as Parameters<typeof t>[0]));
       }
     });
+  }
+
+  async function handleDeleteAccount() {
+    setIsDeleting(true);
+    toast.info(t("deleting"));
+    try {
+      const result = await deleteAccountAction();
+      if (result.success) {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        router.push("/");
+      } else {
+        toast.error(t("delete_error"));
+        setIsDeleting(false);
+      }
+    } catch {
+      toast.error(t("delete_error"));
+      setIsDeleting(false);
+    }
   }
 
   async function handleUpgrade(priceId: string, planKey: string) {
@@ -440,17 +465,70 @@ export default function SettingsClient({
         <div className="px-5 py-4 border-b border-[#FEE2E2]">
           <p className="text-[14px] font-semibold text-[#EF4444]">{t("danger_title")}</p>
         </div>
-        <div className="px-5 py-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[13px] font-medium text-[#374151]">{t("delete_account")}</p>
-            <p className="text-[12px] text-[#9CA3AF] mt-0.5">{t("delete_desc")}</p>
-          </div>
-          <button
-            disabled
-            className="shrink-0 text-[12px] font-semibold text-[#EF4444] border border-[#FCA5A5] hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {t("delete_account")}
-          </button>
+        <div className="px-5 py-5">
+          {!showDeleteConfirm ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-medium text-[#374151]">{t("delete_account")}</p>
+                <p className="text-[12px] text-[#9CA3AF] mt-0.5">{t("delete_desc")}</p>
+              </div>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="shrink-0 text-[12px] font-semibold text-[#EF4444] border border-[#FCA5A5] hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {t("delete_account")}
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-[12px] border border-[#FCA5A5] bg-[#FFF5F5] p-4 space-y-4">
+              <p className="text-[14px] font-bold text-[#EF4444]">{t("delete_confirm_title")}</p>
+              <div>
+                <p className="text-[12px] font-semibold text-[#374151] mb-2">{t("delete_what_happens")}</p>
+                <ul className="space-y-1.5">
+                  {(["delete_consequence_1", "delete_consequence_2", "delete_consequence_3", "delete_consequence_4"] as const).map((key) => (
+                    <li key={key} className="flex items-start gap-2 text-[12px] text-[#4B5563]">
+                      <svg className="w-3.5 h-3.5 text-[#EF4444] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      {t(key as Parameters<typeof t>[0])}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-[#374151] mb-1.5">{t("delete_type_confirm")}</label>
+                <input
+                  type="text"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-[#FCA5A5] rounded-[9px] text-[#374151] placeholder-[#F87171]/60 focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-[#EF4444]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteInput(""); }}
+                  className="flex-1 py-2 text-[13px] font-medium text-[#6B7280] hover:text-[#111827] border-[0.5px] border-[#E5E7EB] hover:border-[#D1D5DB] rounded-[9px] transition-colors"
+                >
+                  {t("delete_cancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteInput !== t("delete_confirm_word") || isDeleting}
+                  className="flex-1 py-2 text-[13px] font-semibold text-white bg-[#EF4444] hover:bg-[#DC2626] disabled:opacity-40 disabled:cursor-not-allowed rounded-[9px] transition-colors flex items-center justify-center gap-1.5"
+                >
+                  {isDeleting && (
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                  {t("delete_account")}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

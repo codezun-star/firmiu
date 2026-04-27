@@ -228,7 +228,11 @@
       "login_action": "Inicia sesión",
       "success_title": "¡Revisá tu correo!",
       "success_detail": "Te enviamos un enlace de verificación a",
-      "success_note": "Una vez verificada tu cuenta podrás iniciar sesión."
+      "success_note": "Una vez verificada tu cuenta podrás iniciar sesión.",
+      "placeholder_name": "María",
+      "placeholder_lastname": "López",
+      "placeholder_email": "juan@empresa.com",
+      "placeholder_password": "Mínimo 8 caracteres"
     },
     "login": {
       "meta_title": "Iniciar sesión",
@@ -241,7 +245,8 @@
       "forgot_link": "¿Olvidaste tu contraseña?",
       "submit": "Entrar",
       "register_link": "¿No tienes cuenta?",
-      "register_action": "Regístrate gratis"
+      "register_action": "Regístrate gratis",
+      "placeholder_email": "juan@empresa.com"
     },
     "forgot_password": {
       "title": "Recuperar acceso",
@@ -353,6 +358,9 @@
     "pdf_section_desc": "El firmante verá este PDF en su navegador.",
     "recipient_section": "Destinatario",
     "recipient_section_desc": "Recibirá un correo con el enlace de firma.",
+    "placeholder_title": "Contrato de servicios.pdf",
+    "placeholder_name": "Ana García",
+    "placeholder_email": "ana@empresa.com",
     "what_next_title": "¿Qué sucede después?",
     "what_next_1": "El destinatario recibe un correo con enlace único y código de seguridad.",
     "what_next_2": "Firma el documento desde cualquier dispositivo sin instalar nada.",
@@ -453,6 +461,10 @@
     "hide": "Ocultar",
     "hide_confirm": "¿Ocultar este contacto? Solo desaparecerá de tu panel, no se eliminará.",
     "hide_success": "Contacto ocultado",
+    "placeholder_name": "Nombre completo",
+    "placeholder_email": "correo@empresa.com",
+    "placeholder_company": "Empresa S.A. (opcional)",
+    "placeholder_search": "Buscar contactos...",
     "empty_title": "Sin contactos aún",
     "empty_desc": "Agrega contactos para enviar documentos más rápido.",
     "errors": {
@@ -526,7 +538,18 @@
     "business_f6": "Soporte 24/7",
     "danger_title": "Zona de riesgo",
     "delete_account": "Eliminar mi cuenta",
-    "delete_desc": "Elimina tu cuenta y todos tus documentos de forma permanente.",
+    "delete_desc": "Esta acción es permanente y no se puede deshacer.",
+    "delete_confirm_word": "ELIMINAR",
+    "delete_type_confirm": "Escribe ELIMINAR para confirmar",
+    "delete_confirm_title": "¿Estás seguro?",
+    "delete_what_happens": "¿Qué pasará?",
+    "delete_consequence_1": "Tu cuenta será eliminada permanentemente",
+    "delete_consequence_2": "Tus documentos firmados se conservarán por razones legales",
+    "delete_consequence_3": "Tu suscripción será cancelada inmediatamente",
+    "delete_consequence_4": "No recibirás reembolso por el período actual",
+    "deleting": "Eliminando tu cuenta...",
+    "delete_error": "No se pudo eliminar la cuenta. Contactá a soporte.",
+    "delete_cancel": "Cancelar",
     "errors": {
       "name_required": "El nombre no puede estar vacío.",
       "password_short": "La contraseña debe tener al menos 6 caracteres.",

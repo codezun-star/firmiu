@@ -122,7 +122,7 @@ export default function RegisterForm({ locale, plan }: RegisterFormProps) {
               autoComplete="given-name"
               required
               className="w-full px-3 py-2.5 rounded-[9px] border border-[#E5E7EB] text-sm bg-white text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10 transition-colors"
-              placeholder="Juan"
+              placeholder={t("register.placeholder_name")}
             />
           </div>
           <div>
@@ -135,7 +135,7 @@ export default function RegisterForm({ locale, plan }: RegisterFormProps) {
               type="text"
               autoComplete="family-name"
               className="w-full px-3 py-2.5 rounded-[9px] border border-[#E5E7EB] text-sm bg-white text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10 transition-colors"
-              placeholder="García"
+              placeholder={t("register.placeholder_lastname")}
             />
           </div>
         </div>
@@ -152,7 +152,7 @@ export default function RegisterForm({ locale, plan }: RegisterFormProps) {
             autoComplete="email"
             required
             className="w-full px-3 py-2.5 rounded-[9px] border border-[#E5E7EB] text-sm bg-white text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10 transition-colors"
-            placeholder="juan@empresa.com"
+            placeholder={t("register.placeholder_email")}
           />
         </div>
 

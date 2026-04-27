@@ -174,7 +174,7 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
             type="text"
             required
             defaultValue={defaultNombre}
-            placeholder="María López"
+            placeholder={t("placeholder_name")}
             className="w-full px-3 py-2.5 rounded-[9px] border border-[#E5E7EB] text-sm bg-white text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10 transition-colors"
           />
         </div>
@@ -196,7 +196,7 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
               type="email"
               required
               defaultValue={defaultCorreo}
-              placeholder="maria@empresa.com"
+              placeholder={t("placeholder_email")}
               className="w-full pl-9 pr-3 py-2.5 rounded-[9px] border border-[#E5E7EB] text-sm bg-white text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10 transition-colors"
             />
           </div>

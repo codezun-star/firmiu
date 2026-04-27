@@ -114,7 +114,7 @@ export default function ContactosClient({ locale, contactos, page, totalPages, t
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("search")}
+            placeholder={t("placeholder_search")}
             className="w-full pl-9 pr-3 py-2 text-[13px] bg-white border-[0.5px] border-[#E5E7EB] rounded-[9px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1a3c5e]/20 focus:border-[#1a3c5e]"
           />
         </div>
@@ -295,7 +295,7 @@ export default function ContactosClient({ locale, contactos, page, totalPages, t
                   type="text"
                   required
                   autoFocus
-                  placeholder="Ana García"
+                  placeholder={t("placeholder_name")}
                   className="w-full px-3 py-2 text-[13px] bg-white border-[0.5px] border-[#E5E7EB] rounded-[9px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1a3c5e]/20 focus:border-[#1a3c5e]"
                 />
               </div>
@@ -305,7 +305,7 @@ export default function ContactosClient({ locale, contactos, page, totalPages, t
                   name="correo"
                   type="email"
                   required
-                  placeholder="ana@empresa.com"
+                  placeholder={t("placeholder_email")}
                   className="w-full px-3 py-2 text-[13px] bg-white border-[0.5px] border-[#E5E7EB] rounded-[9px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1a3c5e]/20 focus:border-[#1a3c5e]"
                 />
               </div>
@@ -314,7 +314,7 @@ export default function ContactosClient({ locale, contactos, page, totalPages, t
                 <input
                   name="empresa"
                   type="text"
-                  placeholder="Empresa S.A. (opcional)"
+                  placeholder={t("placeholder_company")}
                   className="w-full px-3 py-2 text-[13px] bg-white border-[0.5px] border-[#E5E7EB] rounded-[9px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1a3c5e]/20 focus:border-[#1a3c5e]"
                 />
               </div>
