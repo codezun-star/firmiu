@@ -114,6 +114,29 @@ export default function Pricing({ locale }: PricingProps) {
             );
           })}
         </div>
+
+        {/* ── Incluido en todos los planes ── */}
+        <div className="mt-10 bg-white rounded-2xl border-[0.5px] border-[#E5E7EB] p-6 sm:p-8">
+          <p className="text-center text-sm font-semibold text-[#374151] mb-5">
+            {t("included_title")}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {(["included_legal", "included_ip", "included_datetime", "included_pdf", "included_vpn"] as const).map((key) => (
+              <div key={key} className="flex items-center gap-2.5">
+                <svg
+                  className="w-4 h-4 shrink-0 text-[#F97316]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-sm text-[#6B7280]">{t(key)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </section>
   );

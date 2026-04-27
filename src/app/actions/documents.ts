@@ -192,6 +192,10 @@ export async function uploadDocumentAction(
       .eq("id", subId);
   }
 
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/documentos");
+  revalidatePath("/en/dashboard");
+  revalidatePath("/en/dashboard/documentos");
   return { errorKey: null, success: true, destinatario: nombreDestinatario, titulo };
 }
 

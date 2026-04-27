@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import FirmasClient from "./FirmasClient";
 
+export const dynamic = "force-dynamic";
+
 interface FirmasPageProps {
   params: { locale: string };
   searchParams: { page?: string };

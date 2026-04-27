@@ -34,5 +34,7 @@ export async function updatePasswordAction(formData: FormData): Promise<Settings
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: "generic" };
 
+  revalidatePath("/dashboard/cuenta");
+  revalidatePath("/en/dashboard/cuenta");
   return { error: null };
 }

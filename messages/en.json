@@ -111,7 +111,6 @@
         "features": [
           "3 documents / month",
           "1 user",
-          "Basic signature with audit",
           "Email support"
         ]
       },
@@ -121,8 +120,6 @@
         "features": [
           "30 documents / month",
           "1 user",
-          "Full audit + VPN detection",
-          "Automatic reminders",
           "Priority support"
         ]
       },
@@ -132,8 +129,7 @@
         "features": [
           "100 documents / month",
           "1 user",
-          "Your logo on signing page",
-          "Document templates",
+          "Automatic 48h reminders",
           "Priority support"
         ]
       },
@@ -143,14 +139,21 @@
         "features": [
           "Unlimited documents",
           "Up to 5 users",
+          "Automatic reminders",
           "Public API + webhooks",
-          "Dedicated account manager",
           "24/7 support"
         ]
       },
       "cta_free": "Start free",
       "cta_paid": "Get started",
-      "popular": "Most popular"
+      "popular": "Most popular",
+      "included_title": "Included in all plans",
+      "included_legal": "Legally valid signature",
+      "included_ip": "IP, device and location tracking",
+      "included_datetime": "Certified date and time of signing",
+      "included_pdf": "Downloadable audit PDF",
+      "included_vpn": "VPN detection when applicable",
+      "reminder_feature": "Automatic 48h reminders"
     },
     "faq": {
       "title": "Frequently asked questions",
@@ -492,20 +495,20 @@
     "plan_limit_free": "3 docs / mo",
     "plan_limits": "Plan limit",
     "free_f1": "3 documents / month",
-    "free_f2": "Signature with audit",
+    "free_f2": "1 user",
     "free_f3": "Email support",
-    "starter_f1": "30 docs / month",
-    "starter_f2": "Full audit trail",
-    "starter_f3": "VPN detection",
-    "starter_f4": "Priority support",
-    "pro_f1": "100 docs / month",
-    "pro_f2": "Your logo on signing page",
-    "pro_f3": "Document templates",
+    "starter_f1": "30 documents / month",
+    "starter_f2": "1 user",
+    "starter_f3": "Priority support",
+    "pro_f1": "100 documents / month",
+    "pro_f2": "1 user",
+    "pro_f3": "Automatic 48h reminders",
     "pro_f4": "Priority support",
-    "business_f1": "Unlimited docs",
+    "business_f1": "Unlimited documents",
     "business_f2": "Up to 5 users",
-    "business_f3": "Public API + webhooks",
-    "business_f4": "24/7 support",
+    "business_f3": "Automatic reminders",
+    "business_f4": "Public API + webhooks",
+    "business_f5": "24/7 support",
     "danger_title": "Danger zone",
     "delete_account": "Delete my account",
     "delete_desc": "Permanently delete your account and all your documents.",

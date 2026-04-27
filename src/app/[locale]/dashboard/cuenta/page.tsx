@@ -2,6 +2,8 @@ import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import SettingsClient from "./SettingsClient";
 
+export const dynamic = "force-dynamic";
+
 interface CuentaPageProps {
   params: { locale: string };
 }

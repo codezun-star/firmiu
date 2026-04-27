@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import DocumentosClient, { type DocumentoRow } from "./DocumentosClient";
 
+export const dynamic = "force-dynamic";
+
 interface DocumentosPageProps {
   params: { locale: string };
   searchParams: { page?: string };

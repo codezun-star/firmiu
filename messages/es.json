@@ -111,7 +111,6 @@
         "features": [
           "3 documentos / mes",
           "1 usuario",
-          "Firma básica con auditoría",
           "Soporte por correo"
         ]
       },
@@ -121,8 +120,6 @@
         "features": [
           "30 documentos / mes",
           "1 usuario",
-          "Auditoría completa + VPN",
-          "Recordatorios automáticos",
           "Soporte prioritario"
         ]
       },
@@ -132,8 +129,7 @@
         "features": [
           "100 documentos / mes",
           "1 usuario",
-          "Tu logo en la página de firma",
-          "Plantillas de documentos",
+          "Recordatorios automáticos a 48h",
           "Soporte prioritario"
         ]
       },
@@ -143,14 +139,21 @@
         "features": [
           "Documentos ilimitados",
           "Hasta 5 usuarios",
+          "Recordatorios automáticos",
           "API pública + webhooks",
-          "Manager de cuenta dedicado",
           "Soporte 24/7"
         ]
       },
       "cta_free": "Empezar gratis",
       "cta_paid": "Empezar ahora",
-      "popular": "Más popular"
+      "popular": "Más popular",
+      "included_title": "Incluido en todos los planes",
+      "included_legal": "Firma con validez legal",
+      "included_ip": "Registro de IP, dispositivo y ubicación",
+      "included_datetime": "Fecha y hora certificada del firmante",
+      "included_pdf": "PDF con auditoría descargable",
+      "included_vpn": "Detección de VPN si aplica",
+      "reminder_feature": "Recordatorios automáticos a 48h"
     },
     "faq": {
       "title": "Preguntas frecuentes",
@@ -492,20 +495,20 @@
     "plan_limit_free": "3 docs / mes",
     "plan_limits": "Límite del plan",
     "free_f1": "3 documentos / mes",
-    "free_f2": "Firma con auditoría",
+    "free_f2": "1 usuario",
     "free_f3": "Soporte por correo",
-    "starter_f1": "30 docs / mes",
-    "starter_f2": "Auditoría completa",
-    "starter_f3": "Detección de VPN",
-    "starter_f4": "Soporte prioritario",
-    "pro_f1": "100 docs / mes",
-    "pro_f2": "Tu logo en la firma",
-    "pro_f3": "Plantillas de documentos",
+    "starter_f1": "30 documentos / mes",
+    "starter_f2": "1 usuario",
+    "starter_f3": "Soporte prioritario",
+    "pro_f1": "100 documentos / mes",
+    "pro_f2": "1 usuario",
+    "pro_f3": "Recordatorios automáticos a 48h",
     "pro_f4": "Soporte prioritario",
-    "business_f1": "Docs ilimitados",
+    "business_f1": "Documentos ilimitados",
     "business_f2": "Hasta 5 usuarios",
-    "business_f3": "API pública + webhooks",
-    "business_f4": "Soporte 24/7",
+    "business_f3": "Recordatorios automáticos",
+    "business_f4": "API pública + webhooks",
+    "business_f5": "Soporte 24/7",
     "danger_title": "Zona de riesgo",
     "delete_account": "Eliminar mi cuenta",
     "delete_desc": "Elimina tu cuenta y todos tus documentos de forma permanente.",

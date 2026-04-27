@@ -47,7 +47,7 @@ const PLANS = [
     bg: "#EFF6FF",
     border: "#BFDBFE",
     popular: false,
-    featureKeys: ["starter_f1", "starter_f2", "starter_f3", "starter_f4"],
+    featureKeys: ["starter_f1", "starter_f2", "starter_f3"],
   },
   {
     key: "pro",
@@ -67,7 +67,7 @@ const PLANS = [
     bg: "#F5F3FF",
     border: "#DDD6FE",
     popular: false,
-    featureKeys: ["business_f1", "business_f2", "business_f3", "business_f4"],
+    featureKeys: ["business_f1", "business_f2", "business_f3", "business_f4", "business_f5"],
   },
 ] as const;
 

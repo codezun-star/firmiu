@@ -2,6 +2,8 @@ import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import ContactosClient from "./ContactosClient";
 
+export const dynamic = "force-dynamic";
+
 interface ContactosPageProps {
   params: { locale: string };
   searchParams: { page?: string };
