@@ -10,6 +10,7 @@ interface DashboardNavProps {
   locale: string;
   userName: string;
   userInitials: string;
+  currentPlan: string;
 }
 
 interface NavItem {
@@ -26,7 +27,14 @@ function NavIcon({ path }: { path: string }) {
   );
 }
 
-export default function DashboardNav({ locale, userName, userInitials }: DashboardNavProps) {
+const PLAN_KEY_MAP: Record<string, "plan_free" | "plan_starter" | "plan_pro" | "plan_business"> = {
+  free:     "plan_free",
+  starter:  "plan_starter",
+  pro:      "plan_pro",
+  business: "plan_business",
+};
+
+export default function DashboardNav({ locale, userName, userInitials, currentPlan }: DashboardNavProps) {
   const t = useTranslations("nav");
   const td = useTranslations("dashboard");
   const tdoc = useTranslations("documents");
@@ -128,7 +136,7 @@ export default function DashboardNav({ locale, userName, userInitials }: Dashboa
             <p className="text-white text-[12px] font-medium truncate leading-tight">
               {userName || "Usuario"}
             </p>
-            <p className="text-[#4d7a9e] text-[10px] leading-tight">{t("plan_free")}</p>
+            <p className="text-[#4d7a9e] text-[10px] leading-tight">{t(PLAN_KEY_MAP[currentPlan] ?? "plan_free")}</p>
           </div>
         </div>
         <form action={logoutAction}>

@@ -36,11 +36,14 @@ export default async function DashboardLayout({
     .eq("owner_id", userId)
     .maybeSingle();
 
-  const currentPlan = (sub?.estado === "active" ? sub?.plan : null) ?? "free";
+  const currentPlan =
+    sub?.estado === "active" || sub?.estado === "canceling"
+      ? (sub.plan ?? "free")
+      : "free";
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
-      <DashboardNav locale={locale} userName={rawName} userInitials={userInitials} />
+      <DashboardNav locale={locale} userName={rawName} userInitials={userInitials} currentPlan={currentPlan} />
       <PendingPlanChecker currentPlan={currentPlan} />
       <main className="md:ml-[200px] pt-[52px] min-h-screen">
         {children}
