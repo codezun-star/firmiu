@@ -206,7 +206,19 @@
       "feature2_title": "Firma en minutos",
       "feature2_desc": "Sin imprimir ni escanear",
       "feature3_title": "Audit trail completo",
-      "feature3_desc": "IP, hora, dispositivo, ubicación"
+      "feature3_desc": "IP, hora, dispositivo, ubicación",
+      "stat1_value": "500+",
+      "stat1_label": "Documentos firmados",
+      "stat2_value": "4.9★",
+      "stat2_label": "Valoración promedio",
+      "stat3_value": "10+",
+      "stat3_label": "Países activos",
+      "stat4_value": "100%",
+      "stat4_label": "Uptime garantizado",
+      "testimonial_quote": "Cerramos contratos 3x más rápido.",
+      "testimonial_author": "Carlos M.",
+      "testimonial_role": "Abogado · Guatemala",
+      "testimonial_initials": "CM"
     },
     "register": {
       "meta_title": "Crear cuenta gratis",

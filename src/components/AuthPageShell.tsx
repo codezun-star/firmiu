@@ -39,6 +39,13 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
     },
   ];
 
+  const stats = [
+    { value: t("stat1_value"), label: t("stat1_label") },
+    { value: t("stat2_value"), label: t("stat2_label") },
+    { value: t("stat3_value"), label: t("stat3_label") },
+    { value: t("stat4_value"), label: t("stat4_label") },
+  ];
+
   return (
     <div className="min-h-screen flex">
       {/* ── Left panel (hidden on mobile) ─────────────────── */}
@@ -50,7 +57,7 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
 
         <div className="relative z-10 flex flex-col flex-1 p-7">
           {/* Logo */}
-          <div className="mb-8">
+          <div className="mb-7">
             <p className="text-2xl font-medium tracking-tight">
               <span className="text-white">firm</span>
               <span className="text-[#F97316]">iu</span>
@@ -58,23 +65,59 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
             <p className="text-[#94b8d4] text-xs mt-1">{t("tagline")}</p>
           </div>
 
-          {/* Features */}
-          <div className="space-y-5 flex-1">
-            {features.map((f, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.15)] border border-[rgba(249,115,22,0.3)] flex items-center justify-center shrink-0">
-                  {f.icon}
+          {/* Scrollable content area */}
+          <div className="flex-1 flex flex-col gap-5">
+
+            {/* Features */}
+            <div className="space-y-4">
+              {features.map((f, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.15)] border border-[rgba(249,115,22,0.3)] flex items-center justify-center shrink-0">
+                    {f.icon}
+                  </div>
+                  <div>
+                    <p className="text-white text-[13px] font-medium leading-tight">{f.title}</p>
+                    <p className="text-[#6a9abf] text-[11px] mt-0.5">{f.desc}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-white text-[13px] font-medium leading-tight">{f.title}</p>
-                  <p className="text-[#6a9abf] text-[11px] mt-0.5">{f.desc}</p>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <div style={{ borderTop: "0.5px solid rgba(255,255,255,0.1)" }} />
+
+            {/* Stats 2×2 */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {stats.map((s) => (
+                <div key={s.label}>
+                  <p className="text-white text-[15px] font-medium leading-tight">{s.value}</p>
+                  <p className="text-[#6a9abf] text-[11px] mt-0.5">{s.label}</p>
                 </div>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <div style={{ borderTop: "0.5px solid rgba(255,255,255,0.1)" }} />
+
+            {/* Testimonial */}
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
+                <span className="text-white text-[11px] font-bold">{t("testimonial_initials")}</span>
               </div>
-            ))}
+              <div>
+                <p className="text-[#94b8d4] text-[12px] italic leading-relaxed">
+                  &ldquo;{t("testimonial_quote")}&rdquo;
+                </p>
+                <p className="text-[#4d7a9e] text-[11px] mt-1.5">
+                  — {t("testimonial_author")}, {t("testimonial_role")}
+                </p>
+              </div>
+            </div>
+
           </div>
 
           {/* Language switcher */}
-          <div className="pt-4 border-t border-white/10">
+          <div className="pt-4 mt-4 border-t border-white/10">
             <AuthLanguageSwitcher locale={locale} />
           </div>
         </div>
@@ -85,11 +128,12 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
         {/* Inner wrapper — stacks logo + card on mobile, just card on desktop */}
         <div className="w-full max-w-[340px] lg:max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden flex justify-center mb-8">
+          <div className="lg:hidden flex flex-col items-center mb-8">
             <p className="text-2xl font-medium tracking-tight">
               <span className="text-[#1a3c5e]">firm</span>
               <span className="text-[#F97316]">iu</span>
             </p>
+            <p className="text-[#9CA3AF] text-xs mt-1">{t("tagline")}</p>
           </div>
 
           {/* Card — no border/shadow on mobile */}

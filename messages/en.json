@@ -206,7 +206,19 @@
       "feature2_title": "Sign in minutes",
       "feature2_desc": "No printing or scanning needed",
       "feature3_title": "Full audit trail",
-      "feature3_desc": "IP, time, device, location"
+      "feature3_desc": "IP, time, device, location",
+      "stat1_value": "500+",
+      "stat1_label": "Documents signed",
+      "stat2_value": "4.9★",
+      "stat2_label": "Average rating",
+      "stat3_value": "10+",
+      "stat3_label": "Active countries",
+      "stat4_value": "100%",
+      "stat4_label": "Uptime guaranteed",
+      "testimonial_quote": "We close contracts 3x faster.",
+      "testimonial_author": "Carlos M.",
+      "testimonial_role": "Lawyer · Guatemala",
+      "testimonial_initials": "CM"
     },
     "register": {
       "meta_title": "Create Free Account",
