@@ -219,6 +219,7 @@ export default function RegisterForm({ locale, plan }: RegisterFormProps) {
             id="terms"
             name="terms"
             type="checkbox"
+            required
             className="mt-0.5 w-3.5 h-3.5 rounded border-[#E5E7EB] text-[#F97316] focus:ring-[#F97316]/20 accent-[#F97316] shrink-0"
           />
           <label htmlFor="terms" className="text-xs text-[#6B7280] leading-relaxed">
