@@ -310,6 +310,7 @@
   },
   "documents": {
     "title": "Documentos",
+    "refresh": "Actualizar",
     "table": {
       "document": "Documento",
       "client": "Cliente",
