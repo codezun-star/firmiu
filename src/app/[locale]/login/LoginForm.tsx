@@ -34,9 +34,19 @@ export default function LoginForm({ locale, oauthError }: LoginFormProps) {
       </div>
 
       {/* Google */}
-      <div className="mb-4">
+      <div className="mb-1">
         <GoogleButton locale={locale} label={t("google_button")} />
       </div>
+      <p className="text-xs text-center text-[#6a9abf] mb-4 leading-relaxed">
+        {t("google_terms")}{" "}
+        <Link href={`${prefix}/terminos`} target="_blank" className="underline text-[#94b8d4] hover:text-[#1a3c5e] transition-colors">
+          {t("google_terms_service")}
+        </Link>{" "}
+        {t("google_terms_and")}{" "}
+        <Link href={`${prefix}/privacidad`} target="_blank" className="underline text-[#94b8d4] hover:text-[#1a3c5e] transition-colors">
+          {t("google_terms_privacy")}
+        </Link>
+      </p>
 
       {/* Divider */}
       <div className="relative my-4">

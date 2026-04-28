@@ -80,9 +80,19 @@ export default function RegisterForm({ locale, plan }: RegisterFormProps) {
       </div>
 
       {/* Google */}
-      <div className="mb-4">
+      <div className="mb-1">
         <GoogleButton locale={locale} label={t("google_button")} />
       </div>
+      <p className="text-xs text-center text-[#6a9abf] mb-4 leading-relaxed">
+        {t("google_terms")}{" "}
+        <Link href={`${prefix}/terminos`} target="_blank" className="underline text-[#94b8d4] hover:text-[#1a3c5e] transition-colors">
+          {t("google_terms_service")}
+        </Link>{" "}
+        {t("google_terms_and")}{" "}
+        <Link href={`${prefix}/privacidad`} target="_blank" className="underline text-[#94b8d4] hover:text-[#1a3c5e] transition-colors">
+          {t("google_terms_privacy")}
+        </Link>
+      </p>
 
       {/* Divider */}
       <div className="relative my-4">
@@ -211,27 +221,6 @@ export default function RegisterForm({ locale, plan }: RegisterFormProps) {
               </p>
             </div>
           )}
-        </div>
-
-        {/* Terms */}
-        <div className="flex items-start gap-2.5 pt-0.5">
-          <input
-            id="terms"
-            name="terms"
-            type="checkbox"
-            required
-            className="mt-0.5 w-3.5 h-3.5 rounded border-[#E5E7EB] text-[#F97316] focus:ring-[#F97316]/20 accent-[#F97316] shrink-0"
-          />
-          <label htmlFor="terms" className="text-xs text-[#6B7280] leading-relaxed">
-            {t("register.terms_prefix")}{" "}
-            <Link href={`${locale === "es" ? "" : `/${locale}`}/terminos`} target="_blank" className="text-[#F97316] hover:text-[#EA580C] transition-colors">
-              {t("register.terms_link")}
-            </Link>{" "}
-            {t("register.terms_and")}{" "}
-            <Link href={`${locale === "es" ? "" : `/${locale}`}/privacidad`} target="_blank" className="text-[#F97316] hover:text-[#EA580C] transition-colors">
-              {t("register.privacy_link")}
-            </Link>
-          </label>
         </div>
 
         <SubmitButton className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-[9px] py-2.5 text-sm font-medium transition-colors duration-150 mt-1">

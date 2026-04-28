@@ -59,7 +59,6 @@ export async function registerAction(
   const password = (formData.get("password") as string) ?? "";
   const locale = (formData.get("locale") as string) ?? "es";
   const plan = (formData.get("plan") as string) ?? "";
-  const terms = formData.get("terms") === "on";
 
   if (!nombre || !email || !password) {
     return { errorKey: "generic", success: false };
@@ -69,9 +68,6 @@ export async function registerAction(
   }
   if (!isValidPassword(password)) {
     return { errorKey: "weak_password", success: false };
-  }
-  if (!terms) {
-    return { errorKey: "terms_required", success: false };
   }
 
   const supabase = createClient();

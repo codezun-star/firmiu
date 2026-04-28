@@ -198,6 +198,10 @@
       "generic": "Ocurrió un error inesperado. Intentá de nuevo."
     },
     "google_button": "Continuar con Google",
+    "google_terms": "Al continuar, aceptas nuestros",
+    "google_terms_service": "Términos de servicio",
+    "google_terms_and": "y la",
+    "google_terms_privacy": "Política de privacidad",
     "or_continue_with": "o continúa con",
     "panel": {
       "tagline": "Firma digital simple para tu negocio",

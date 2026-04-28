@@ -198,6 +198,10 @@
       "generic": "An unexpected error occurred. Please try again."
     },
     "google_button": "Continue with Google",
+    "google_terms": "By continuing, you agree to our",
+    "google_terms_service": "Terms of Service",
+    "google_terms_and": "and",
+    "google_terms_privacy": "Privacy Policy",
     "or_continue_with": "or continue with",
     "panel": {
       "tagline": "Simple digital signing for your business",
