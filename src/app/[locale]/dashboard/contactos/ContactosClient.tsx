@@ -183,21 +183,23 @@ export default function ContactosClient({ locale, contactos, page, totalPages, t
 
                 {/* Actions */}
                 {isHiding ? (
-                  <div className="flex items-center gap-2">
-                    <p className="text-[12px] text-[#F97316] flex-1">{t("hide_confirm")}</p>
-                    <button
-                      onClick={() => handleHide(c.id)}
-                      disabled={isPending}
-                      className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {t("hide")}
-                    </button>
-                    <button
-                      onClick={() => setHideId(null)}
-                      className="text-[11px] font-medium text-[#6B7280] hover:text-[#111827] px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      {t("cancel")}
-                    </button>
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[11px] text-[#6B7280] leading-snug">{t("hide_confirm")}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleHide(c.id)}
+                        disabled={isPending}
+                        className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {t("hide_yes")}
+                      </button>
+                      <button
+                        onClick={() => setHideId(null)}
+                        className="text-[11px] font-medium text-[#6B7280] hover:text-[#111827] px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {t("cancel")}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex gap-2">

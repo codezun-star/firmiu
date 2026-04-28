@@ -172,23 +172,25 @@ export default function FirmasClient({ firmas, page, totalPages, totalCount, loc
                     </td>
 
                     {/* Actions */}
-                    <td className="px-5 py-3.5 whitespace-nowrap">
+                    <td className="px-5 py-3.5">
                       {hideId === firma.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-[#6B7280] max-w-[140px] leading-tight">{t("hide_confirm")}</span>
-                          <button
-                            onClick={() => handleHide(firma.id)}
-                            disabled={isPending}
-                            className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            {t("hide")}
-                          </button>
-                          <button
-                            onClick={() => setHideId(null)}
-                            className="text-[11px] font-medium text-[#6B7280] hover:text-[#111827] px-2.5 py-1 rounded-lg transition-colors"
-                          >
-                            {t("cancel")}
-                          </button>
+                        <div className="flex flex-col gap-1.5 min-w-[160px]">
+                          <span className="text-[11px] text-[#6B7280] leading-snug">{t("hide_confirm")}</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleHide(firma.id)}
+                              disabled={isPending}
+                              className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              {t("hide_yes")}
+                            </button>
+                            <button
+                              onClick={() => setHideId(null)}
+                              className="text-[11px] font-medium text-[#6B7280] hover:text-[#111827] px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              {t("cancel")}
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <button
@@ -261,15 +263,15 @@ export default function FirmasClient({ firmas, page, totalPages, totalCount, loc
                 {/* Hide action */}
                 <div className="pl-9">
                   {hideId === firma.id ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] text-[#6B7280]">{t("hide_confirm")}</span>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[11px] text-[#6B7280] leading-snug">{t("hide_confirm")}</span>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleHide(firma.id)}
                           disabled={isPending}
                           className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
                         >
-                          {t("hide")}
+                          {t("hide_yes")}
                         </button>
                         <button
                           onClick={() => setHideId(null)}

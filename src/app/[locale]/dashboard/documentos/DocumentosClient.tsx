@@ -381,7 +381,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                               disabled={isPending}
                               className="text-[11px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
                             >
-                              {t("hide")}
+                              {t("hide_yes")}
                             </button>
                             <button
                               onClick={() => setHideId(null)}
@@ -471,7 +471,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => handleHide(doc.id)} disabled={isPending}
                             className="text-[11px] font-semibold text-white bg-[#F97316] px-2 py-1 rounded-lg disabled:opacity-50">
-                            {t("hide")}
+                            {t("hide_yes")}
                           </button>
                           <button onClick={() => setHideId(null)}
                             className="text-[11px] text-[#6B7280] px-2 py-1 rounded-lg">
