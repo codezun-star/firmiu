@@ -145,9 +145,9 @@
         "price": "59",
         "features": [
           "Unlimited documents",
-          "Up to 5 users",
+          "Up to 5 users (Coming soon)",
           "Everything in Pro",
-          "Public API + webhooks",
+          "Public API + webhooks (Coming soon)",
           "Dedicated account manager",
           "24/7 support"
         ]
@@ -531,9 +531,9 @@
     "pro_f4": "Automatic 48h reminders",
     "pro_f5": "Priority support",
     "business_f1": "Unlimited documents",
-    "business_f2": "Up to 5 users",
+    "business_f2": "Up to 5 users (Coming soon)",
     "business_f3": "Everything in Pro",
-    "business_f4": "Public API + webhooks",
+    "business_f4": "Public API + webhooks (Coming soon)",
     "business_f5": "Dedicated account manager",
     "business_f6": "24/7 support",
     "danger_title": "Danger zone",

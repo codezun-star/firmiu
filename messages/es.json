@@ -145,9 +145,9 @@
         "price": "59",
         "features": [
           "Documentos ilimitados",
-          "Hasta 5 usuarios",
+          "Hasta 5 usuarios (Próximamente)",
           "Todo lo del Pro",
-          "API pública + webhooks",
+          "API pública + webhooks (Próximamente)",
           "Manager de cuenta dedicado",
           "Soporte 24/7"
         ]
@@ -531,9 +531,9 @@
     "pro_f4": "Recordatorios automáticos a 48h",
     "pro_f5": "Soporte prioritario",
     "business_f1": "Documentos ilimitados",
-    "business_f2": "Hasta 5 usuarios",
+    "business_f2": "Hasta 5 usuarios (Próximamente)",
     "business_f3": "Todo lo del Pro",
-    "business_f4": "API pública + webhooks",
+    "business_f4": "API pública + webhooks (Próximamente)",
     "business_f5": "Manager de cuenta dedicado",
     "business_f6": "Soporte 24/7",
     "danger_title": "Zona de riesgo",

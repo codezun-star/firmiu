@@ -26,7 +26,7 @@ Dominio: **firmiu.com** · Deploy: **Vercel** (pendiente) · Base de datos: **Su
 | Firma en PDF | pdf-lib | ✅ |
 | Canvas de firma | react-signature-canvas | ✅ |
 | Toasts | Sistema propio por eventos (`toast.ts` + `Toaster.tsx`) | ✅ |
-| Pagos | Paddle (`@paddle/paddle-js`) | ✅ Checkout + webhook + límites implementados |
+| Pagos | Paddle (`@paddle/paddle-js`) | ✅ Checkout + webhook + cancelación implementados |
 | Deploy | Vercel | ⏳ No configurado |
 | Lenguaje | TypeScript strict | ✅ |
 
@@ -72,8 +72,8 @@ CRON_SECRET=...   # Vercel lo inyecta automáticamente como Authorization: Beare
 ```
 firmiu/
 ├── messages/
-│   ├── es.json               # Traducciones ES (default) — 550 claves
-│   └── en.json               # Traducciones EN — 550 claves (paridad exacta)
+│   ├── es.json               # Traducciones ES (default) — ~620 claves
+│   └── en.json               # Traducciones EN — ~620 claves (paridad exacta)
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx        # Root layout (metadataBase → firmiu.com, fallback SEO)
@@ -85,7 +85,7 @@ firmiu/
 │   │   │   ├── documents.ts  # uploadDocumentAction (con límites de plan), hideDocumentAction
 │   │   │   ├── sign.ts       # signDocumentAction, downloadSignedPdfAction, hideSignatureAction
 │   │   │   ├── contacts.ts   # addContactAction, deleteContactAction, hideContactAction
-│   │   │   └── settings.ts   # updateProfileAction, updatePasswordAction
+│   │   │   └── settings.ts   # updateProfileAction, updatePasswordAction, deleteAccountAction, cancelSubscriptionAction
 │   │   ├── api/
 │   │   │   ├── cron/reset-docs/route.ts  # Cron mensual — resetea documentos_mes en suscripciones
 │   │   │   └── paddle/webhook/route.ts   # Webhook Paddle → upsert suscripciones + webhook_logs
@@ -116,7 +116,7 @@ firmiu/
 │   │       │   ├── nuevo/page.tsx + NuevoForm.tsx
 │   │       │   ├── documentos/page.tsx + DocumentosClient.tsx   # tabs + paginación + soft delete
 │   │       │   ├── contactos/page.tsx + ContactosClient.tsx     # CRUD + búsqueda + paginación
-│   │       │   ├── cuenta/page.tsx + SettingsClient.tsx         # perfil + contraseña + plan
+│   │       │   ├── cuenta/page.tsx + SettingsClient.tsx         # perfil + contraseña + plan + cancelar + eliminar cuenta
 │   │       │   └── firmas/page.tsx + FirmasClient.tsx           # historial + paginación
 │   │       └── firmar/
 │   │           ├── [token]/page.tsx + FirmarClient.tsx  # canvas + OTP + brute-force
@@ -191,7 +191,7 @@ firmiu/
 - `firmiu-text-in` — texto fade + sube
 
 ### Regla de i18n
-**Nunca** hardcodear textos en componentes. Siempre agregar en `messages/es.json` y `messages/en.json`. Las 550 claves están en paridad exacta.
+**Nunca** hardcodear textos en componentes. Siempre agregar en `messages/es.json` y `messages/en.json`. Paridad exacta entre ambos archivos.
 
 ```
 nav.*                    → navbar y sidebar
@@ -202,21 +202,21 @@ home.testimonials.*      → testimonios
 home.in_context.*        → estadísticas
 home.cta_banner.*        → banner final
 home.features.*          → sección visual upload/sign/download
-home.pricing.*           → precios y planes
+home.pricing.*           → precios y planes (incluye features arrays de cada plan)
 home.faq.*               → FAQ (title, subtitle, q1-q8, a1-a8)
 auth.errors.*            → mensajes de error
-auth.register.*          → formulario de registro (+ meta_title, meta_description, meta_keywords)
-auth.login.*             → formulario de login (+ meta_title, meta_description, meta_keywords)
+auth.register.*          → formulario de registro (+ meta, placeholders)
+auth.login.*             → formulario de login (+ meta, placeholders)
 auth.google_button / auth.or_continue_with / auth.panel.*
 auth.forgot_password.*   → recuperar contraseña
 dashboard.*              → panel principal
 documents.*              → lista de documentos (incluye cancel, hide_confirm, hide)
-nuevo.*                  → subir nuevo documento (incluye nuevo.errors.*, modal_title, modal_subtitle)
+nuevo.*                  → subir nuevo documento (incluye nuevo.errors.*, modal_title, modal_subtitle, placeholders)
 sign.*                   → página pública de firma (incluye already_signed_*, errors.*, signing, pdf_error)
 sign_success.*           → página post-firma (incluye download_loading)
-contacts_page.*          → módulo de contactos (incluye hide_confirm, hide, pagination.*)
+contacts_page.*          → módulo de contactos (incluye hide_confirm, hide, pagination.*, placeholders)
 firmas_page.*            → módulo de firmas (incluye cancel, hide, hide_confirm, pagination.*)
-settings.*               → módulo de cuenta/configuración (incluye planes)
+settings.*               → módulo de cuenta/configuración (incluye planes, cancel_sub_*, delete_*)
 pagination.*             → previous, next, page_of, showing
 terms.*                  → términos de servicio (s1..s13)
 privacy.*                → política de privacidad (s1..s10)
@@ -265,9 +265,22 @@ pending_plan.*           → loader de suscripción pendiente
 - Intenta log en tabla `webhook_logs` (no-fatal si tabla no existe)
 - `PendingPlanChecker.tsx`: limpia cookie/localStorage si el plan ya está activo
 
+### ✅ Cancelar suscripción (`cancelSubscriptionAction`)
+- Llama `POST /subscriptions/{id}/cancel` en Paddle API con `effective_from: 'next_billing_period'`
+- El usuario mantiene acceso hasta fin del período pagado
+- Marca `estado = 'canceling'` en DB; el webhook `subscription.canceled` cambia el plan a free cuando llega
+- `cuenta/page.tsx` trata `estado === 'canceling'` igual que `active` para mostrar plan y límite correctos
+- UI en `/dashboard/cuenta`: botón inline para planes de pago, confirmación en 2 pasos, badge naranja si ya está cancelando
+
+### ✅ Eliminar cuenta (`deleteAccountAction`)
+- Cancela suscripción Paddle (non-fatal), soft-delete documentos, hard-delete contactos y suscripción
+- Elimina usuario de Supabase Auth (cascade limpia el resto)
+- UI: flujo 2 pasos con input de confirmación (escribe "ELIMINAR"/"DELETE"), spinner
+- Después del éxito: `supabase.auth.signOut()` + `router.push('/')`
+
 ### ✅ Límites de plan en upload
 - `uploadDocumentAction` consulta `suscripciones` para obtener `limite_documentos` y `documentos_mes`
-- Plan activo: bloquea si `documentos_mes >= limite_documentos`
+- Plan activo o cancelando: bloquea si `documentos_mes >= limite_documentos`
 - Plan free: cuenta docs del mes actual desde tabla `documentos` — bloquea si `>= 3`
 - Tras upload exitoso: incrementa `documentos_mes` en `suscripciones`
 - Error: retorna `errorKey: "plan_limit_reached"`
@@ -313,7 +326,7 @@ pending_plan.*           → loader de suscripción pendiente
 
 **`/dashboard/firmas`** — historial de firmas con audit trail + timezone `America/Tegucigalda`
 
-**`/dashboard/cuenta`** — datos reales, plan actual desde `suscripciones`, zona de peligro (placeholder)
+**`/dashboard/cuenta`** — perfil, contraseña, plan actual, cancelar suscripción (2 pasos), eliminar cuenta (2 pasos + confirmación escrita)
 
 ### ✅ SEO agresivo — todas las páginas públicas
 - Landing: JSON-LD (Organization + WebSite + SoftwareApplication + FAQPage), hreflang, OG, Twitter Card
@@ -323,7 +336,7 @@ pending_plan.*           → loader de suscripción pendiente
 - `metadataBase`: `https://firmiu.com`
 - `FAQ.tsx`: `<details>/<summary>` — indexable sin JS
 
-### ✅ Estado de páginas — Build: 44 páginas, 0 errores
+### ✅ Estado de páginas — Build: 45 páginas, 0 errores
 
 | Ruta | Estado |
 |---|---|
@@ -342,7 +355,7 @@ pending_plan.*           → loader de suscripción pendiente
 | `/dashboard/nuevo` | Funcional — upload + límites de plan + email + SuccessModal |
 | `/dashboard/documentos` | Funcional — paginación + soft delete + signed URLs |
 | `/dashboard/contactos` | Funcional — CRUD + paginación + soft delete |
-| `/dashboard/cuenta` | Funcional — perfil + contraseña + plan actual |
+| `/dashboard/cuenta` | Funcional — perfil + contraseña + plan + cancelar suscripción + eliminar cuenta |
 | `/dashboard/firmas` | Funcional — historial + paginación + soft delete |
 | `/firmar/[token]` | Funcional — canvas + OTP + brute-force + pdf-lib |
 | `/firmar/exito` | Funcional — descarga PDF firmado, noindex |
@@ -413,6 +426,10 @@ create table suscripciones (
   paddle_customer_id     text,
   plan                   text not null default 'free',
   estado                 text not null default 'active',
+  -- estado values: 'active' | 'canceling' | 'canceled'
+  -- 'canceling': cancelSubscriptionAction lo setea; el usuario mantiene acceso hasta fin de período
+  -- 'canceled': webhook subscription.canceled de Paddle lo setea; baja a free
+  -- cuenta/page.tsx trata 'active' y 'canceling' igual (muestra plan y límite pagados)
   documentos_mes         integer not null default 0,       -- contador mensual (cron lo resetea)
   limite_documentos      integer not null default 3,       -- Free=3, Starter=30, Pro=100, Business=999999
   periodo_inicio         timestamptz,
@@ -420,7 +437,7 @@ create table suscripciones (
   creado_en              timestamptz not null default now(),
   actualizado_en         timestamptz not null default now()
 );
--- RLS: auth.uid() = owner_id (select only; webhook usa admin client)
+-- RLS: auth.uid() = owner_id (select only; webhook y acciones admin usan admin client)
 
 -- webhook_logs (sin migración aún — tabla opcional)
 -- El webhook intenta insertar aquí; falla silenciosamente si no existe.
@@ -469,12 +486,12 @@ create table if not exists webhook_logs (
 ### 3. Ejecutar migraciones en Supabase
 - Aplicar 001 → 006 en orden en el SQL Editor si no se han ejecutado
 
-### 4. Eliminar cuenta (zona de peligro)
-- `deleteAccountAction` en `settings.ts` — aún es placeholder
-- Debe: cancelar suscripción en Paddle API + eliminar usuario en Supabase Auth
-
-### 5. tabla webhook_logs (opcional pero recomendado)
+### 4. Tabla webhook_logs (opcional pero recomendado)
 - Crear la tabla manualmente en Supabase para auditar eventos de Paddle
+
+### 5. Business plan — funciones futuras (Próximamente en UI)
+- **Multi-usuario (hasta 5)**: requiere modelo de equipos/invitaciones, roles, nueva tabla `team_members`
+- **API pública + webhooks**: requiere generación de API keys, rate limiting, endpoints públicos documentados
 
 ---
 
@@ -495,7 +512,7 @@ npm run lint     # ESLint
 |---|---|---|
 | Client Component | `src/lib/supabase/client.ts` | `createClient()` |
 | Server Component / Action / Route Handler | `src/lib/supabase/server.ts` | `createClient()` |
-| Bypasear RLS (storage, tabla firmas, sign, webhook) | `src/lib/supabase/admin.ts` | `createAdminClient()` |
+| Bypasear RLS (storage, tabla firmas, sign, webhook, admin ops) | `src/lib/supabase/admin.ts` | `createAdminClient()` |
 
 ### Reglas de desarrollo
 - **Textos**: SIEMPRE en `messages/es.json` y `messages/en.json`. Nunca hardcodear. Incluye placeholders, labels, meta_title, meta_description, meta_keywords.
@@ -516,7 +533,11 @@ npm run lint     # ESLint
 - **Paddle environment**: `paddle.ts` lee `NEXT_PUBLIC_PADDLE_ENV`. Comparación estricta `=== 'production'` — cualquier otro valor activa sandbox. Cambiar a `'production'` en Vercel para producción.
 - **Checkout Paddle flow**: Pricing → cookie `firmiu_pending_plan` + `/register?plan=` → registerAction → `/checkout?plan=` (o auth/callback → `/checkout?plan=`). `CheckoutClient` escucha `firmiu:paddle-success` y `firmiu:paddle-closed`.
 - **Límites de plan**: consultados en `uploadDocumentAction` desde tabla `suscripciones`. Cron job resetea `documentos_mes` el día 1 de cada mes. Asegurarse que `CRON_SECRET` está en Vercel.
+- **Estado suscripción**: `suscripciones.estado` puede ser `'active'`, `'canceling'` o `'canceled'`. El código trata `active` y `canceling` igual (acceso pagado). Solo `canceled` o ausencia de fila = free.
+- **cancelSubscriptionAction**: usa `POST /subscriptions/{id}/cancel` con `effective_from: 'next_billing_period'`. El webhook de Paddle (`subscription.canceled`) cambia el plan a free cuando llega — no modificar el plan manualmente.
+- **deleteAccountAction**: usa `admin.auth.admin.deleteUser(user.id)` que hace cascade en toda la DB. El soft-delete previo de documentos es intencional (señala intención de preservar) pero el cascade los elimina igualmente.
 - **`DownloadSignedButton`**: requiere prop `loadingLabel` (obligatoria). Pasarla desde el componente padre usando `t("sign_success.download_loading")` o `t("already_signed_loading")` según contexto.
 - **SEO en páginas nuevas**: toda página pública debe tener `generateMetadata` con title, description, keywords (desde i18n), canonical, hreflang languages (es/en), OG, Twitter, robots.
-- **Build**: `npm run build` debe pasar sin errores. Build actual genera 44 páginas.
+- **Build**: `npm run build` debe pasar sin errores. Build actual genera 45 páginas.
 - **`NEXT_PUBLIC_APP_URL`**: usado en metadata SEO (canonical, OG, sitemap, links de email). En producción: `https://firmiu.com`.
+- **Business plan features próximamente**: "API pública + webhooks" y "Hasta 5 usuarios" están marcadas como "(Próximamente)" en `home.pricing.business.features` y `settings.business_f2/f4`. No implementar sin antes acordar el diseño.
