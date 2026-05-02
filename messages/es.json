@@ -711,6 +711,13 @@
     "page_of": "Página {page} de {total}",
     "showing": "Mostrando {from}-{to} de {count} registros"
   },
+  "not_found": {
+    "title": "Página no encontrada",
+    "description": "Lo que buscás no existe o fue movido a otro lugar.",
+    "cta": "Volver al inicio",
+    "or": "o",
+    "contact": "contactar soporte"
+  },
   "checkout": {
     "loading": "Preparando tu suscripción...",
     "go_dashboard": "Ir al dashboard",

@@ -711,6 +711,13 @@
     "page_of": "Page {page} of {total}",
     "showing": "Showing {from}-{to} of {count} records"
   },
+  "not_found": {
+    "title": "Page not found",
+    "description": "What you're looking for doesn't exist or has been moved.",
+    "cta": "Go back home",
+    "or": "or",
+    "contact": "contact support"
+  },
   "checkout": {
     "loading": "Preparing your subscription...",
     "go_dashboard": "Go to dashboard",
