@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import DashboardNav from "@/components/DashboardNav";
 import PendingPlanChecker from "@/components/PendingPlanChecker";
+
+export const metadata: Metadata = {
+  title: "Panel — Firmiu",
+  robots: { index: false, follow: false, noarchive: true },
+};
 
 interface DashboardLayoutProps {
   children: React.ReactNode;

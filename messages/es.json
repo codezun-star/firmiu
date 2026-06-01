@@ -183,7 +183,11 @@
       "q7": "¿Dónde se guardan mis documentos?",
       "a7": "Tus documentos se almacenan cifrados en servidores seguros con cifrado AES-256. Solo tú y los firmantes autorizados pueden acceder a ellos.",
       "q8": "¿Puedo probar Firmiu gratis?",
-      "a8": "Sí. El plan gratuito incluye 3 documentos al mes sin necesidad de tarjeta de crédito. Puedes actualizar en cualquier momento cuando necesites más capacidad."
+      "a8": "Sí. El plan gratuito incluye 3 documentos al mes sin necesidad de tarjeta de crédito. Puedes actualizar en cualquier momento cuando necesites más capacidad.",
+      "q9": "¿En qué países de Latinoamérica tiene validez legal la firma de Firmiu?",
+      "a9": "Firmiu tiene validez legal en los principales países de Latinoamérica, incluyendo México, Colombia, Argentina, Chile, Perú, Costa Rica, Guatemala, Ecuador, Honduras, El Salvador, Bolivia, Paraguay, Uruguay, Panamá, República Dominicana y Nicaragua, conforme a las leyes locales de firma electrónica y comercio electrónico.",
+      "q10": "¿Firmiu cumple con normativas de protección de datos?",
+      "a10": "Sí. Firmiu cumple con el Reglamento General de Protección de Datos (GDPR) de la Unión Europea y las leyes locales de protección de datos aplicables en Latinoamérica. Tus documentos se almacenan con cifrado AES-256, solo accesibles por ti y los firmantes autorizados. No vendemos ni compartimos tus datos con terceros."
     }
   },
   "auth": {
@@ -364,7 +368,11 @@
     "hide_yes": "Sí, ocultar",
     "hide_confirm": "¿Ocultar de tu vista? El registro se conserva por seguridad legal.",
     "hide_success": "Documento ocultado",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "resend": "Reenviar",
+    "resend_sending": "Enviando...",
+    "resend_success": "Email reenviado al destinatario",
+    "resend_error": "No se pudo reenviar el email"
   },
   "nuevo": {
     "title": "Nuevo documento",
@@ -654,7 +662,8 @@
     "loading": "Preparando tu suscripción..."
   },
   "about": {
-    "meta_keywords": "quiénes somos firmiu, empresa firma digital latinoamerica, misión firmiu, firma electrónica latam, equipo firmiu",
+    "meta_description": "Conoce Firmiu: la herramienta de firma digital diseñada para contadores, abogados e inmobiliarias en Latinoamérica. Simple, segura y con validez legal en México, Colombia, Argentina, Chile, Perú y más.",
+    "meta_keywords": "quiénes somos firmiu, empresa firma digital latinoamerica, misión firmiu, firma electrónica latam, equipo firmiu, firma digital México, firma digital Colombia, firma digital Argentina, firma digital Chile, firma digital Perú, firma digital Costa Rica",
     "title": "Sobre Firmiu",
     "subtitle": "Simplificamos la firma digital para toda Latinoamérica.",
     "mission_title": "Nuestra misión",
@@ -675,7 +684,8 @@
     "value_3_desc": "Precios justos pensados para el mercado latinoamericano."
   },
   "contact": {
-    "meta_keywords": "contacto firmiu, soporte firma digital, ayuda firmiu, email firma electrónica, atención al cliente firmiu",
+    "meta_description": "Contacta al equipo de Firmiu para soporte técnico, consultas sobre firma digital o información comercial. Respondemos en menos de 24 horas. Disponible para usuarios de toda Latinoamérica.",
+    "meta_keywords": "contacto firmiu, soporte firma digital, ayuda firmiu, email firma electrónica, atención al cliente firmiu, soporte latinoamerica firma digital",
     "title": "Contacto",
     "subtitle": "¿Tenés alguna pregunta? Escribinos.",
     "body": "Podés contactarnos directamente por correo:",
@@ -728,7 +738,8 @@
     "see_plans": "Ver planes"
   },
   "refund": {
-    "meta_keywords": "política de reembolsos firmiu, cancelación suscripción firma digital, reembolso firma electrónica, cancelar plan firmiu",
+    "meta_description": "Política de reembolsos de Firmiu: condiciones de cancelación y devolución de suscripciones. Sin compromisos a largo plazo. Cancela cuando quieras y mantén acceso hasta fin del período.",
+    "meta_keywords": "política de reembolsos firmiu, cancelación suscripción firma digital, reembolso firma electrónica, cancelar plan firmiu, cancelar suscripción latinoamerica",
     "title": "Política de Reembolsos",
     "updated": "Última actualización: abril 2025",
     "intro": "Esta política describe las condiciones bajo las cuales Firmiu gestiona cancelaciones y solicitudes de reembolso.",

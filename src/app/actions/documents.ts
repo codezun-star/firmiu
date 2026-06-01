@@ -6,6 +6,7 @@ import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { escapeHtml, isValidEmail, isValidUUID, sanitizeText } from "@/lib/security";
+import { getPrefix } from "@/lib/utils";
 
 export type DocumentState = {
   errorKey: string | null;
@@ -13,10 +14,6 @@ export type DocumentState = {
   destinatario?: string;
   titulo?: string;
 };
-
-function getPrefix(locale: string): string {
-  return locale === "es" ? "" : `/${locale}`;
-}
 
 export async function uploadDocumentAction(
   prevState: DocumentState,
@@ -30,7 +27,7 @@ export async function uploadDocumentAction(
   if (!pdfFile || pdfFile.size === 0) {
     return { errorKey: "pdf_required", success: false };
   }
-  if (!pdfFile.name.toLowerCase().endsWith(".pdf")) {
+  if (!pdfFile.name.toLowerCase().endsWith(".pdf") || pdfFile.type !== "application/pdf") {
     return { errorKey: "pdf_invalid", success: false };
   }
   if (pdfFile.size > 20 * 1024 * 1024) {
@@ -62,7 +59,7 @@ export async function uploadDocumentAction(
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (!subError && sub?.estado === "active") {
+  if (!subError && (sub?.estado === "active" || sub?.estado === "canceling")) {
     planLimit  = sub.limite_documentos;
     subId      = sub.id;
     subDocsMes = sub.documentos_mes ?? 0;
@@ -197,6 +194,83 @@ export async function uploadDocumentAction(
   revalidatePath("/en/dashboard");
   revalidatePath("/en/dashboard/documentos");
   return { errorKey: null, success: true, destinatario: nombreDestinatario, titulo };
+}
+
+export async function resendSigningEmailAction(
+  id: string,
+  locale: string
+): Promise<{ error: string | null }> {
+  if (!isValidUUID(id)) return { error: "generic" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "generic" };
+
+  // RLS verifies ownership implicitly
+  const { data: doc } = await supabase
+    .from("documentos")
+    .select("id, titulo, nombre_destinatario, correo_destinatario, estado, token")
+    .eq("id", id)
+    .eq("owner_id", user.id)
+    .eq("oculto", false)
+    .single();
+
+  if (!doc) return { error: "generic" };
+  if (doc.estado === "firmado") return { error: "already_signed" };
+
+  const admin = createAdminClient();
+  const { data: firma } = await admin
+    .from("firmas")
+    .select("codigo_verificacion")
+    .eq("documento_id", doc.id)
+    .single();
+
+  if (!firma) return { error: "generic" };
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const signingUrl = `${appUrl}/firmar/${doc.token}`;
+  const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
+  const tituloEscaped = escapeHtml(doc.titulo);
+  const verificationCode = firma.codigo_verificacion;
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: "Firmiu <noreply@firmiu.com>",
+      to: doc.correo_destinatario,
+      subject: `${ownerName} te reenvió un documento para firmar`,
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
+          <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
+            <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
+          </div>
+          <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+            <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Documento pendiente de firma</h2>
+            <p style="color:#374151;margin:0 0 24px;line-height:1.6">
+              <strong>${ownerName}</strong> te reenvió el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
+            </p>
+            <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;text-align:center;margin:0 0 24px">
+              <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#f97316">${verificationCode}</span>
+            </div>
+            <a href="${signingUrl}" style="background:#f97316;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
+              Firmar documento →
+            </a>
+            <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+              Si no esperabas este documento, puedes ignorar este correo.<br>
+              Este enlace es de uso único y expira una vez firmado.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  } catch {
+    return { error: "email_failed" };
+  }
+
+  const prefix = getPrefix(locale);
+  revalidatePath(`${prefix}/dashboard/documentos`);
+  return { error: null };
 }
 
 export async function hideDocumentAction(

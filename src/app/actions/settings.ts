@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidPassword, sanitizeText } from "@/lib/security";
+import { getPrefix } from "@/lib/utils";
 
 export interface SettingsResult {
   error: string | null;
@@ -19,7 +20,7 @@ export async function updateProfileAction(formData: FormData): Promise<SettingsR
   const { error } = await supabase.auth.updateUser({ data: { nombre } });
   if (error) return { error: "generic" };
 
-  const prefix = locale === "es" ? "" : `/${locale}`;
+  const prefix = getPrefix(locale);
   revalidatePath(`${prefix}/dashboard/cuenta`);
   return { error: null };
 }
@@ -50,14 +51,17 @@ export async function deleteAccountAction(): Promise<DeleteAccountResult> {
         ? "https://api.paddle.com"
         : "https://sandbox-api.paddle.com";
       try {
-        await fetch(`${paddleBase}/subscriptions/${sub.paddle_subscription_id}`, {
-          method: "DELETE",
-          headers: {
-            "Authorization": `Bearer ${process.env.PADDLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ effective_from: "immediately" }),
-        });
+        await fetch(
+          `${paddleBase}/subscriptions/${sub.paddle_subscription_id}/cancel`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.PADDLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ effective_from: "immediately" }),
+          }
+        );
       } catch {
         // Non-fatal: continue with deletion
       }

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isValidEmail, isValidPassword, sanitizeText } from "@/lib/security";
+import { getPrefix } from "@/lib/utils";
 
 export type AuthState = {
   errorKey: string | null;
@@ -43,10 +44,6 @@ function mapErrorKey(message: string): string {
   return "generic";
 }
 
-function getPrefix(locale: string): string {
-  return locale === "es" ? "" : `/${locale}`;
-}
-
 // ─── Register ────────────────────────────────────────────────
 export async function registerAction(
   prevState: AuthState,
@@ -68,6 +65,11 @@ export async function registerAction(
   }
   if (!isValidPassword(password)) {
     return { errorKey: "weak_password", success: false };
+  }
+
+  const termsAccepted = formData.get("terms") === "on";
+  if (!termsAccepted) {
+    return { errorKey: "terms_required", success: false };
   }
 
   const supabase = createClient();

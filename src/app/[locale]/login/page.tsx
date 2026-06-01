@@ -17,23 +17,37 @@ export async function generateMetadata({ params: { locale } }: LoginPageProps): 
   const t = await getTranslations({ locale, namespace: "auth.login" });
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
   const prefix = locale === "es" ? "" : `/${locale}`;
+  const title = `${t("meta_title")} — Firmiu`;
+  const description = t("meta_description");
+  const ogImage = `${base}/api/og?title=${encodeURIComponent(t("meta_title"))}`;
   return {
-    title: `${t("meta_title")} — Firmiu`,
-    description: t("meta_description"),
+    title,
+    description,
     keywords: t("meta_keywords"),
     alternates: {
       canonical: `${base}${prefix}/login`,
-      languages: { es: `${base}/login`, en: `${base}/en/login` },
+      languages: {
+        es: `${base}/login`,
+        en: `${base}/en/login`,
+        "x-default": `${base}/login`,
+      },
     },
     openGraph: {
-      title: `${t("meta_title")} — Firmiu`,
-      description: t("meta_description"),
+      title,
+      description,
       url: `${base}${prefix}/login`,
       siteName: "Firmiu",
       locale: locale === "es" ? "es_419" : "en_US",
+      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
       type: "website",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
-    twitter: { card: "summary", title: `${t("meta_title")} — Firmiu`, description: t("meta_description") },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
     robots: { index: true, follow: true },
   };
 }

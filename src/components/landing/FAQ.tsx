@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 export default function FAQ() {
   const t = useTranslations("home.faq");
 
-  const pairs = Array.from({ length: 8 }, (_, i) => ({
+  const pairs = Array.from({ length: 10 }, (_, i) => ({
     q: t(`q${i + 1}` as Parameters<typeof t>[0]),
     a: t(`a${i + 1}` as Parameters<typeof t>[0]),
   }));

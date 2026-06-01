@@ -16,23 +16,37 @@ export async function generateMetadata({ params: { locale } }: ReembolsosPagePro
   const t = await getTranslations({ locale, namespace: "refund" });
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
   const prefix = locale === "es" ? "" : `/${locale}`;
+  const title = `${t("title")} — Firmiu`;
+  const description = t("meta_description");
+  const ogImage = `${base}/api/og?title=${encodeURIComponent(t("title"))}`;
   return {
-    title: `${t("title")} — Firmiu`,
-    description: t("intro"),
+    title,
+    description,
     keywords: t("meta_keywords"),
     alternates: {
       canonical: `${base}${prefix}/reembolsos`,
-      languages: { es: `${base}/reembolsos`, en: `${base}/en/reembolsos` },
+      languages: {
+        es: `${base}/reembolsos`,
+        en: `${base}/en/reembolsos`,
+        "x-default": `${base}/reembolsos`,
+      },
     },
     openGraph: {
-      title: `${t("title")} — Firmiu`,
-      description: t("intro"),
+      title,
+      description,
       url: `${base}${prefix}/reembolsos`,
       siteName: "Firmiu",
       locale: locale === "es" ? "es_419" : "en_US",
+      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
       type: "website",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
-    twitter: { card: "summary", title: `${t("title")} — Firmiu`, description: t("intro") },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
     robots: { index: true, follow: true },
   };
 }
@@ -40,6 +54,18 @@ export async function generateMetadata({ params: { locale } }: ReembolsosPagePro
 export default async function ReembolsosPage({ params: { locale } }: ReembolsosPageProps) {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "refund" });
+
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
+  const prefix = locale === "es" ? "" : `/${locale}`;
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: locale === "es" ? "Inicio" : "Home", item: locale === "es" ? base : `${base}/en` },
+      { "@type": "ListItem", position: 2, name: t("title"), item: `${base}${prefix}/reembolsos` },
+    ],
+  };
 
   const sections = [
     { title: t("s1_title"), body: t("s1_body") },
@@ -49,22 +75,18 @@ export default async function ReembolsosPage({ params: { locale } }: ReembolsosP
   ];
 
   const icons = [
-    // 1. General Policy — shield check
     <svg key="s1" className="w-5 h-5 text-[#F97316] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
         d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>,
-    // 2. Refunds — credit card
     <svg key="s2" className="w-5 h-5 text-[#F97316] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
         d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
     </svg>,
-    // 3. Cancellations — x circle
     <svg key="s3" className="w-5 h-5 text-[#F97316] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
         d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>,
-    // 4. Exceptions — exclamation circle
     <svg key="s4" className="w-5 h-5 text-[#F97316] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
         d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -73,6 +95,10 @@ export default async function ReembolsosPage({ params: { locale } }: ReembolsosP
 
   return (
     <div className="min-h-screen flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <Navbar />
 
       {/* Page header */}

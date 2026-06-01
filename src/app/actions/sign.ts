@@ -1,9 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { Resend } from "resend";
 import { PDFDocument, PDFImage, rgb, StandardFonts } from "pdf-lib";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isValidUUID, isValidVerificationCode } from "@/lib/security";
+import { createClient } from "@/lib/supabase/server";
+import { isValidUUID, isValidVerificationCode, escapeHtml } from "@/lib/security";
+import { getPrefix } from "@/lib/utils";
 
 export interface SignResult {
   errorKey: string | null;
@@ -23,10 +27,6 @@ interface GeoData {
   timezone: string;
   proxy: boolean;
   hosting: boolean;
-}
-
-function getPrefix(locale: string): string {
-  return locale === "es" ? "" : `/${locale}`;
 }
 
 function parseUserAgent(ua: string | null): { browser: string; os: string } {
@@ -303,6 +303,12 @@ export async function signDocumentAction({
   // Guard: reject malformed inputs before touching the database
   if (!isValidUUID(token)) return { errorKey: "not_found" };
   if (!isValidVerificationCode(code)) return { errorKey: "invalid_code" };
+  if (
+    !signaturePng?.startsWith("data:image/png;base64,") ||
+    signaturePng.length > 2_000_000
+  ) {
+    return { errorKey: "sign_failed" };
+  }
 
   const admin = createAdminClient();
   const now = new Date();
@@ -310,33 +316,31 @@ export async function signDocumentAction({
   // 1. Fetch document
   const { data: doc, error: docError } = await admin
     .from("documentos")
-    .select("id, owner_id, titulo, nombre_destinatario, correo_destinatario, estado, url_pdf_original")
+    .select("id, owner_id, titulo, nombre_destinatario, correo_destinatario, estado, url_pdf_original, creado_en")
     .eq("token", token)
     .single();
 
   if (docError || !doc) return { errorKey: "not_found" };
   if (doc.estado === "firmado") return { errorKey: "already_signed" };
 
-  // 2. Validate verification code + brute force protection
+  // Token expiration: 30 days after document creation
+  const docCreatedAt = new Date(doc.creado_en as string);
+  if (now.getTime() - docCreatedAt.getTime() > 30 * 24 * 60 * 60 * 1000) {
+    return { errorKey: "not_found" };
+  }
+
+  // 2. Validate verification code + brute force protection (single query)
   const { data: firma } = await admin
     .from("firmas")
-    .select("id, codigo_verificacion")
+    .select("id, codigo_verificacion, intentos_fallidos, bloqueado")
     .eq("documento_id", doc.id)
     .single();
 
   if (!firma) return { errorKey: "not_found" };
-
-  // Brute force tracking (requires migration 004_security.sql — gracefully degraded if not applied)
-  const { data: bfData } = await admin
-    .from("firmas")
-    .select("intentos_fallidos, bloqueado")
-    .eq("id", firma.id)
-    .single();
-
-  if (bfData?.bloqueado) return { errorKey: "code_blocked" };
+  if (firma.bloqueado) return { errorKey: "code_blocked" };
 
   if (firma.codigo_verificacion !== code) {
-    const intentos = (bfData?.intentos_fallidos ?? 0) + 1;
+    const intentos = (firma.intentos_fallidos ?? 0) + 1;
     await admin
       .from("firmas")
       .update({ intentos_fallidos: intentos, bloqueado: intentos >= 5 })
@@ -413,6 +417,49 @@ export async function signDocumentAction({
     return { errorKey: "sign_failed" };
   }
 
+  // Non-critical: notify document owner
+  try {
+    const { data: ownerData } = await admin.auth.admin.getUserById(doc.owner_id);
+    if (ownerData?.user?.email) {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const prefix = getPrefix(locale);
+      const dashboardUrl = `${appUrl}${prefix}/dashboard/documentos`;
+      const tituloEscaped = escapeHtml(doc.titulo);
+      const firmante = escapeHtml(doc.nombre_destinatario);
+      await resend.emails.send({
+        from: "Firmiu <noreply@firmiu.com>",
+        to: ownerData.user.email,
+        subject: `Tu documento "${tituloEscaped}" fue firmado`,
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
+            <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
+              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
+            </div>
+            <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+              <div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:16px;margin:0 0 24px;display:flex;align-items:center;gap:12px">
+                <span style="color:#10b981;font-size:24px">✓</span>
+                <span style="color:#065f46;font-weight:600;font-size:15px">Documento firmado exitosamente</span>
+              </div>
+              <p style="color:#374151;margin:0 0 16px;line-height:1.6">
+                <strong>${firmante}</strong> firmó el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong>.
+                El PDF firmado con audit trail completo ya está disponible en tu panel.
+              </p>
+              <a href="${dashboardUrl}" style="background:#1a3c5e;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
+                Ver en el panel →
+              </a>
+              <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+                Firmiu — Firma digital para Latinoamérica · firmiu.com
+              </p>
+            </div>
+          </div>
+        `,
+      });
+    }
+  } catch {
+    // Non-fatal: signing succeeded, notification is best-effort
+  }
+
   // Non-critical: enrich firma with parsed + geo metadata
   // Wrapped separately so a missing migration column doesn't break the sign flow
   try {
@@ -465,10 +512,6 @@ export async function hideSignatureAction(
   id: string,
   locale: string
 ): Promise<{ error: string | null }> {
-  // Inline imports to avoid changing top-level imports in this file
-  const { createClient } = await import("@/lib/supabase/server");
-  const { revalidatePath } = await import("next/cache");
-
   if (!isValidUUID(id)) return { error: "generic" };
 
   const supabase = createClient();

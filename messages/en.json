@@ -183,7 +183,11 @@
       "q7": "Where are my documents stored?",
       "a7": "Your documents are stored encrypted on secure servers with AES-256 encryption. Only you and authorized signers can access them.",
       "q8": "Can I try Firmiu for free?",
-      "a8": "Yes. The free plan includes 3 documents per month with no credit card required. You can upgrade at any time when you need more capacity."
+      "a8": "Yes. The free plan includes 3 documents per month with no credit card required. You can upgrade at any time when you need more capacity.",
+      "q9": "In which Latin American countries is Firmiu's signature legally valid?",
+      "a9": "Firmiu is legally valid in the main Latin American countries, including Mexico, Colombia, Argentina, Chile, Peru, Costa Rica, Guatemala, Ecuador, Honduras, El Salvador, Bolivia, Paraguay, Uruguay, Panama, Dominican Republic, and Nicaragua, in accordance with local electronic signature and e-commerce laws.",
+      "q10": "Does Firmiu comply with data protection regulations?",
+      "a10": "Yes. Firmiu complies with the General Data Protection Regulation (GDPR) of the European Union and applicable local data protection laws across Latin America. Your documents are stored with AES-256 encryption, accessible only by you and authorized signers. We do not sell or share your data with third parties."
     }
   },
   "auth": {
@@ -364,7 +368,11 @@
     "hide_yes": "Yes, hide",
     "hide_confirm": "Hide from your view? The record is kept for legal security.",
     "hide_success": "Document hidden",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "resend": "Resend",
+    "resend_sending": "Sending...",
+    "resend_success": "Email resent to recipient",
+    "resend_error": "Could not resend the email"
   },
   "nuevo": {
     "title": "New document",
@@ -654,7 +662,8 @@
     "loading": "Preparing your subscription..."
   },
   "about": {
-    "meta_keywords": "about firmiu, digital signature company latin america, firmiu mission, electronic signature latam, firmiu team",
+    "meta_description": "Meet Firmiu: the digital signature tool designed for accountants, lawyers, and real estate professionals in Latin America. Simple, secure, and legally valid in Mexico, Colombia, Argentina, Chile, Peru and more.",
+    "meta_keywords": "about firmiu, digital signature company latin america, firmiu mission, electronic signature latam, firmiu team, digital signature Mexico, digital signature Colombia, digital signature Argentina, digital signature Chile, digital signature Peru, digital signature Costa Rica",
     "title": "About Firmiu",
     "subtitle": "We simplify digital signing for all of Latin America.",
     "mission_title": "Our mission",
@@ -675,7 +684,8 @@
     "value_3_desc": "Fair pricing designed for the Latin American market."
   },
   "contact": {
-    "meta_keywords": "firmiu contact, digital signature support, firmiu help, electronic signature email, firmiu customer service",
+    "meta_description": "Contact the Firmiu team for technical support, questions about digital signatures, or business inquiries. We respond within 24 hours. Available for users across Latin America.",
+    "meta_keywords": "firmiu contact, digital signature support, firmiu help, electronic signature email, firmiu customer service, latin america digital signature support",
     "title": "Contact",
     "subtitle": "Have a question? Reach out.",
     "body": "You can contact us directly by email:",
@@ -728,7 +738,8 @@
     "see_plans": "See plans"
   },
   "refund": {
-    "meta_keywords": "firmiu refund policy, digital signature subscription cancellation, electronic signature refund, cancel firmiu plan",
+    "meta_description": "Firmiu refund policy: cancellation and refund conditions for subscriptions. No long-term commitments. Cancel anytime and keep access until the end of the billing period.",
+    "meta_keywords": "firmiu refund policy, digital signature subscription cancellation, electronic signature refund, cancel firmiu plan, cancel latin america subscription",
     "title": "Refund Policy",
     "updated": "Last updated: April 2025",
     "intro": "This policy describes the conditions under which Firmiu handles cancellations and refund requests.",

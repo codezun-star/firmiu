@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isValidEmail, isValidUUID, sanitizeText } from "@/lib/security";
+import { getPrefix } from "@/lib/utils";
 
 export interface ContactResult {
   error: string | null;
@@ -28,7 +29,7 @@ export async function addContactAction(formData: FormData): Promise<ContactResul
   if (error?.code === "23505") return { error: "exists" };
   if (error) return { error: "generic" };
 
-  const prefix = locale === "es" ? "" : `/${locale}`;
+  const prefix = getPrefix(locale);
   revalidatePath(`${prefix}/dashboard/contactos`);
   return { error: null };
 }
@@ -50,7 +51,7 @@ export async function deleteContactAction(
     .eq("owner_id", user.id);
   if (error) return { error: "generic" };
 
-  const prefix = locale === "es" ? "" : `/${locale}`;
+  const prefix = getPrefix(locale);
   revalidatePath(`${prefix}/dashboard/contactos`);
   return { error: null };
 }
@@ -72,7 +73,7 @@ export async function hideContactAction(
     .eq("owner_id", user.id);
   if (error) return { error: "generic" };
 
-  const prefix = locale === "es" ? "" : `/${locale}`;
+  const prefix = getPrefix(locale);
   revalidatePath(`${prefix}/dashboard/contactos`);
   return { error: null };
 }

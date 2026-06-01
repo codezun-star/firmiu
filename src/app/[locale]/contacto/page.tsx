@@ -16,23 +16,37 @@ export async function generateMetadata({ params: { locale } }: ContactoPageProps
   const t = await getTranslations({ locale, namespace: "contact" });
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
   const prefix = locale === "es" ? "" : `/${locale}`;
+  const title = `${t("title")} — Firmiu`;
+  const description = t("meta_description");
+  const ogImage = `${base}/api/og?title=${encodeURIComponent(t("title"))}`;
   return {
-    title: `${t("title")} — Firmiu`,
-    description: t("subtitle"),
+    title,
+    description,
     keywords: t("meta_keywords"),
     alternates: {
       canonical: `${base}${prefix}/contacto`,
-      languages: { es: `${base}/contacto`, en: `${base}/en/contacto` },
+      languages: {
+        es: `${base}/contacto`,
+        en: `${base}/en/contacto`,
+        "x-default": `${base}/contacto`,
+      },
     },
     openGraph: {
-      title: `${t("title")} — Firmiu`,
-      description: t("subtitle"),
+      title,
+      description,
       url: `${base}${prefix}/contacto`,
       siteName: "Firmiu",
       locale: locale === "es" ? "es_419" : "en_US",
+      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
       type: "website",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
-    twitter: { card: "summary", title: `${t("title")} — Firmiu`, description: t("subtitle") },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
     robots: { index: true, follow: true },
   };
 }
@@ -41,8 +55,24 @@ export default async function ContactoPage({ params: { locale } }: ContactoPageP
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "contact" });
 
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
+  const prefix = locale === "es" ? "" : `/${locale}`;
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: locale === "es" ? "Inicio" : "Home", item: locale === "es" ? base : `${base}/en` },
+      { "@type": "ListItem", position: 2, name: t("title"), item: `${base}${prefix}/contacto` },
+    ],
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <Navbar />
 
       {/* Hero */}

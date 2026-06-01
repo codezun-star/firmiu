@@ -17,23 +17,37 @@ export async function generateMetadata({ params: { locale } }: TerminosPageProps
   const t = await getTranslations({ locale, namespace: "terms" });
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
   const prefix = locale === "es" ? "" : `/${locale}`;
+  const title = `${t("title")} — Firmiu`;
+  const description = t("meta_description");
+  const ogImage = `${base}/api/og?title=${encodeURIComponent(t("title"))}`;
   return {
-    title: `${t("title")} — Firmiu`,
-    description: t("meta_description"),
+    title,
+    description,
     keywords: t("meta_keywords"),
     alternates: {
       canonical: `${base}${prefix}/terminos`,
-      languages: { es: `${base}/terminos`, en: `${base}/en/terminos` },
+      languages: {
+        es: `${base}/terminos`,
+        en: `${base}/en/terminos`,
+        "x-default": `${base}/terminos`,
+      },
     },
     openGraph: {
-      title: `${t("title")} — Firmiu`,
-      description: t("meta_description"),
+      title,
+      description,
       url: `${base}${prefix}/terminos`,
       siteName: "Firmiu",
       locale: locale === "es" ? "es_419" : "en_US",
+      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
       type: "website",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
-    twitter: { card: "summary", title: `${t("title")} — Firmiu`, description: t("meta_description") },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
     robots: { index: true, follow: true },
   };
 }
@@ -42,7 +56,17 @@ export default function TerminosPage({ params: { locale } }: TerminosPageProps) 
   setRequestLocale(locale);
   const t = useTranslations("terms");
 
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
   const prefix = locale === "en" ? "/en" : "";
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: locale === "es" ? "Inicio" : "Home", item: locale === "es" ? base : `${base}/en` },
+      { "@type": "ListItem", position: 2, name: t("title"), item: `${base}${prefix}/terminos` },
+    ],
+  };
 
   const sections = Array.from({ length: 13 }, (_, i) => ({
     title: t(`s${i + 1}_title` as Parameters<typeof t>[0]),
@@ -51,6 +75,10 @@ export default function TerminosPage({ params: { locale } }: TerminosPageProps) 
 
   return (
     <div className="min-h-screen flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <Navbar />
 
       {/* Page header */}
