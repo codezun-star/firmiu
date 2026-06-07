@@ -4,11 +4,19 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { hideDocumentAction, resendSigningEmailAction } from "@/app/actions/documents";
+import { hideDocumentAction, resendSigningEmailAction, resendFirmantesEmailAction } from "@/app/actions/documents";
 import { toast } from "@/lib/toast";
 
 type Estado = "pendiente" | "visto" | "firmado";
 type FilterKey = "todos" | Estado;
+
+interface FirmanteRow {
+  id: string;
+  nombre: string;
+  correo: string;
+  estado: string;
+  token: string;
+}
 
 export interface DocumentoRow {
   id: string;
@@ -20,6 +28,7 @@ export interface DocumentoRow {
   creado_en: string;
   signedOriginalUrl: string | null;
   signedFirmadoUrl: string | null;
+  firmantes: FirmanteRow[] | null;
 }
 
 interface StatusCounts {
@@ -101,10 +110,12 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
   }
 
   /* ── Resend email action ── */
-  function handleResend(id: string) {
+  function handleResend(id: string, hasFirmantes: boolean) {
     setResendingId(id);
     startResendTransition(async () => {
-      const result = await resendSigningEmailAction(id, locale);
+      const result = hasFirmantes
+        ? await resendFirmantesEmailAction(id, locale)
+        : await resendSigningEmailAction(id, locale);
       setResendingId(null);
       if (!result.error) {
         toast.success(t("resend_success"));
@@ -312,10 +323,31 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                         </div>
                       </td>
 
-                      {/* Client */}
+                      {/* Client / Firmantes */}
                       <td className="px-5 py-3.5">
-                        <p className="text-sm font-medium text-[#111827]">{doc.nombre_destinatario}</p>
-                        <p className="text-xs text-[#9CA3AF]">{doc.correo_destinatario}</p>
+                        {doc.firmantes && doc.firmantes.length > 0 ? (
+                          <div className="space-y-0.5">
+                            {doc.firmantes.slice(0, 2).map((f, i) => (
+                              <div key={i} className="flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.estado === "firmado" ? "bg-[#10B981]" : "bg-[#F97316]"}`} />
+                                <span className="text-xs text-[#374151] truncate max-w-[140px]">{f.nombre}</span>
+                              </div>
+                            ))}
+                            {doc.firmantes.length > 0 && (
+                              <p className="text-[10px] text-[#9CA3AF] mt-0.5">
+                                {t("signed_count", {
+                                  signed: doc.firmantes.filter(f => f.estado === "firmado").length,
+                                  total: doc.firmantes.length,
+                                })}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium text-[#111827]">{doc.nombre_destinatario}</p>
+                            <p className="text-xs text-[#9CA3AF]">{doc.correo_destinatario}</p>
+                          </>
+                        )}
                       </td>
 
                       {/* Status */}
@@ -387,7 +419,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                                 )}
                               </button>
                               <button
-                                onClick={() => handleResend(doc.id)}
+                                onClick={() => handleResend(doc.id, !!(doc.firmantes && doc.firmantes.length > 0))}
                                 disabled={isResending}
                                 className="inline-flex items-center gap-1 text-xs font-medium text-[#6B7280] hover:text-[#1a3c5e] transition-colors disabled:opacity-50"
                               >
@@ -481,10 +513,29 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                     </span>
                   </div>
 
-                  {/* Client info */}
+                  {/* Client / Firmantes info */}
                   <div className="pl-9">
-                    <p className="text-sm text-[#374151] font-medium">{doc.nombre_destinatario}</p>
-                    <p className="text-xs text-[#9CA3AF]">{doc.correo_destinatario}</p>
+                    {doc.firmantes && doc.firmantes.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {doc.firmantes.slice(0, 2).map((f, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.estado === "firmado" ? "bg-[#10B981]" : "bg-[#F97316]"}`} />
+                            <span className="text-xs text-[#374151] truncate">{f.nombre}</span>
+                          </div>
+                        ))}
+                        <p className="text-[10px] text-[#9CA3AF]">
+                          {t("signed_count", {
+                            signed: doc.firmantes.filter(f => f.estado === "firmado").length,
+                            total: doc.firmantes.length,
+                          })}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-[#374151] font-medium">{doc.nombre_destinatario}</p>
+                        <p className="text-xs text-[#9CA3AF]">{doc.correo_destinatario}</p>
+                      </>
+                    )}
                   </div>
 
                   {/* Footer */}
@@ -511,7 +562,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                             {isCopied ? t("copied") : t("copy_link")}
                           </button>
                           <button
-                            onClick={() => handleResend(doc.id)}
+                            onClick={() => handleResend(doc.id, !!(doc.firmantes && doc.firmantes.length > 0))}
                             disabled={isResending}
                             className="text-xs font-medium text-[#6B7280] hover:text-[#1a3c5e] transition-colors disabled:opacity-50"
                           >

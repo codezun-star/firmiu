@@ -38,7 +38,7 @@ export default async function DocumentosPage({ params: { locale }, searchParams 
   const total = totalCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  /* ── Status counts (for tab badges, across all pages) ── */
+  /* ── Status counts (for tab badges) ── */
   const [r1, r2, r3] = await Promise.all([
     supabase.from("documentos").select("id", { count: "exact", head: true }).eq("owner_id", userId).eq("oculto", false).eq("estado", "pendiente"),
     supabase.from("documentos").select("id", { count: "exact", head: true }).eq("owner_id", userId).eq("oculto", false).eq("estado", "visto"),
@@ -51,35 +51,47 @@ export default async function DocumentosPage({ params: { locale }, searchParams 
     firmado:   r3.count ?? 0,
   };
 
-  /* ── Batch-generate signed URLs for original PDFs ── */
-  const origPaths = rows
-    .filter(d => d.url_pdf_original)
-    .map(d => d.url_pdf_original as string);
+  /* ── Fetch firmantes for current page docs ── */
+  const docIds = rows.map(d => d.id);
+  const { data: firmantesData } = docIds.length > 0
+    ? await admin
+        .from("firmantes")
+        .select("id, documento_id, nombre, correo, estado, token")
+        .in("documento_id", docIds)
+        .eq("oculto", false)
+        .order("orden", { ascending: true })
+    : { data: [] };
 
+  // Group firmantes by documento_id
+  const firmantesByDoc: Record<string, { id: string; nombre: string; correo: string; estado: string; token: string }[]> = {};
+  for (const f of firmantesData ?? []) {
+    if (!firmantesByDoc[f.documento_id]) firmantesByDoc[f.documento_id] = [];
+    firmantesByDoc[f.documento_id].push({ id: f.id, nombre: f.nombre, correo: f.correo, estado: f.estado, token: f.token });
+  }
+
+  /* ── Batch-generate signed URLs ── */
+  const origPaths = rows.filter(d => d.url_pdf_original).map(d => d.url_pdf_original as string);
   const { data: origUrls } = origPaths.length > 0
     ? await admin.storage.from("pdfs-originales").createSignedUrls(origPaths, 3600)
     : { data: null };
 
-  /* ── Batch-generate signed URLs for signed PDFs ── */
-  const firmPaths = rows
-    .filter(d => d.url_pdf_firmado)
-    .map(d => d.url_pdf_firmado as string);
-
+  const firmPaths = rows.filter(d => d.url_pdf_firmado).map(d => d.url_pdf_firmado as string);
   const { data: firmUrls } = firmPaths.length > 0
     ? await admin.storage.from("pdfs-firmados").createSignedUrls(firmPaths, 3600)
     : { data: null };
 
-  /* ── Merge URLs into rows ── */
+  /* ── Merge ── */
   const documents: DocumentoRow[] = rows.map(doc => ({
-    id:                    doc.id,
-    titulo:                doc.titulo,
-    nombre_destinatario:   doc.nombre_destinatario,
-    correo_destinatario:   doc.correo_destinatario,
-    estado:                doc.estado as DocumentoRow["estado"],
-    token:                 doc.token,
-    creado_en:             doc.creado_en,
-    signedOriginalUrl:     origUrls?.find(u => u.path === doc.url_pdf_original)?.signedUrl ?? null,
-    signedFirmadoUrl:      firmUrls?.find(u => u.path === doc.url_pdf_firmado)?.signedUrl ?? null,
+    id:                  doc.id,
+    titulo:              doc.titulo,
+    nombre_destinatario: doc.nombre_destinatario,
+    correo_destinatario: doc.correo_destinatario,
+    estado:              doc.estado as DocumentoRow["estado"],
+    token:               doc.token,
+    creado_en:           doc.creado_en,
+    signedOriginalUrl:   origUrls?.find(u => u.path === doc.url_pdf_original)?.signedUrl ?? null,
+    signedFirmadoUrl:    firmUrls?.find(u => u.path === doc.url_pdf_firmado)?.signedUrl ?? null,
+    firmantes:           firmantesByDoc[doc.id] ?? null,
   }));
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

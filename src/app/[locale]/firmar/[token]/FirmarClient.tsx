@@ -8,6 +8,14 @@ import SuccessModal from "@/components/SuccessModal";
 import { signDocumentAction } from "@/app/actions/sign";
 import { toast } from "@/lib/toast";
 
+interface SignatureField {
+  pagina: number;
+  campo_x: number;
+  campo_y: number;
+  campo_ancho: number;
+  campo_alto: number;
+}
+
 interface FirmarClientProps {
   locale: string;
   token: string;
@@ -16,6 +24,7 @@ interface FirmarClientProps {
   estado: string;
   pdfUrl: string | null;
   fechaFirma: string | null;
+  signatureField?: SignatureField | null;
 }
 
 export default function FirmarClient({
@@ -26,6 +35,7 @@ export default function FirmarClient({
   estado,
   pdfUrl,
   fechaFirma,
+  signatureField = null,
 }: FirmarClientProps) {
   const t = useTranslations("sign");
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -233,6 +243,16 @@ export default function FirmarClient({
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <p className="text-xs text-[#9CA3AF]">{t("pdf_error")}</p>
+            </div>
+          )}
+          {signatureField && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-[#F0FDF4] border border-[#BBF7D0] rounded-[9px]">
+              <svg className="w-4 h-4 text-[#10B981] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+              <p className="text-xs font-medium text-[#065F46]">
+                {t("field_position_hint")} — {`p.${signatureField.pagina}`}
+              </p>
             </div>
           )}
         </div>
