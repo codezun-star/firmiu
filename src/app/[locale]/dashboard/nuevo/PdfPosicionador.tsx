@@ -88,14 +88,16 @@ export default function PdfPosicionador({
     (async () => {
       setLoading(true);
       const pdfjsLib = await import("pdfjs-dist");
-      // Crear blob URL para el worker (evita restricciones CSP y MIME type en Vercel)
-      // worker-src 'self' blob: ya está en el CSP — blob: es permitido
+      // Cargamos el worker desde la API route (sirve desde node_modules, no depende de public/)
+      // La blob URL se permite por worker-src blob: y script-src blob: en el CSP
       try {
-        const res = await fetch("/pdf.worker.min.mjs");
+        const res = await fetch("/api/pdf-worker");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
       } catch {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        // fallback: sin worker (main thread)
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "";
       }
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;

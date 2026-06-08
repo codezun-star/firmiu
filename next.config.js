@@ -19,7 +19,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sandbox-cdn.paddle.com https://cdn.paddle.com https://www.googletagmanager.com https://www.google-analytics.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://sandbox-cdn.paddle.com https://cdn.paddle.com https://www.googletagmanager.com https://www.google-analytics.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://sandbox-cdn.paddle.com https://cdn.paddle.com",
       "font-src 'self' https://fonts.gstatic.com https://sandbox-cdn.paddle.com data:",
       "frame-src 'self' https://sandbox-buy.paddle.com https://buy.paddle.com https://*.supabase.co blob:",
