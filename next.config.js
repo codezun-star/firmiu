@@ -19,7 +19,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://sandbox-cdn.paddle.com https://cdn.paddle.com https://www.googletagmanager.com https://www.google-analytics.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://unpkg.com https://sandbox-cdn.paddle.com https://cdn.paddle.com https://www.googletagmanager.com https://www.google-analytics.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://sandbox-cdn.paddle.com https://cdn.paddle.com",
       "font-src 'self' https://fonts.gstatic.com https://sandbox-cdn.paddle.com data:",
       "frame-src 'self' https://sandbox-buy.paddle.com https://buy.paddle.com https://*.supabase.co blob:",
@@ -27,7 +27,7 @@ const securityHeaders = [
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.paddle.com https://sandbox-cdn.paddle.com https://sandbox-checkout-service.paddle.com https://ip-api.com https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://region1.google-analytics.com",
       "img-src 'self' data: blob: https://*.paddle.com https://sandbox-cdn.paddle.com https://*.supabase.co https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com",
       "media-src 'self'",
-      "worker-src 'self' blob:",
+      "worker-src 'self' blob: https://cdn.jsdelivr.net https://unpkg.com",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

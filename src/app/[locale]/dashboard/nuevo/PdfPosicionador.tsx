@@ -98,18 +98,10 @@ export default function PdfPosicionador({
         }
 
         const pdfjsLib = await import("pdfjs-dist");
-        // Worker desde public/pdf.worker.min.mjs
-        // El middleware ya excluye .mjs del matcher, así que llega directo al CDN de Vercel.
-        // Lo convertimos a blob URL para satisfacer worker-src blob: del CSP.
-        try {
-          const res = await fetch("/pdf.worker.min.mjs");
-          if (!res.ok) throw new Error(`worker HTTP ${res.status}`);
-          const blob = await res.blob();
-          pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-        } catch {
-          // Si el worker no carga, pdfjs caerá al fake worker (main thread).
-          // El polyfill de Promise.try asegura que no se cuelgue.
-        }
+        // Worker desde CDN de jsDelivr — evita todos los problemas de archivos locales.
+        // CSP actualizado: worker-src y script-src incluyen https://cdn.jsdelivr.net
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
