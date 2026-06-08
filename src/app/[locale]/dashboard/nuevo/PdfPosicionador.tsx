@@ -66,7 +66,7 @@ export default function PdfPosicionador({
         render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> };
       };
       const container = containerRef.current;
-      const containerW = container?.clientWidth ?? 640;
+      const containerW = (container?.clientWidth ?? 0) || 640;
       const unscaledVP = page.getViewport({ scale: 1 });
       const scale = containerW / unscaledVP.width;
       const viewport = page.getViewport({ scale });
@@ -88,7 +88,7 @@ export default function PdfPosicionador({
     (async () => {
       setLoading(true);
       const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       if (cancelled) return;
