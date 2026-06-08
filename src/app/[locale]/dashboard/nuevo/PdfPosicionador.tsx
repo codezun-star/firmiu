@@ -77,32 +77,60 @@ export default function PdfPosicionador({
 
   useEffect(() => {
     let cancelled = false;
+    // Timeout de seguridad: si pdfjs se cuelga (ej. Promise.try falla en fake worker
+    // y el error queda en una cadena desconectada), activamos el fallback a los 10s.
+    const fallbackTimer = setTimeout(() => {
+      if (!cancelled) { setLoading(false); setPdfFailed(true); }
+    }, 10000);
+
     (async () => {
       setLoading(true);
       setPdfFailed(false);
       try {
+        // Polyfill de Promise.try (ES2025) — pdfjs-dist v5 lo usa internamente.
+        // Sin esto, el fake worker lanza TypeError en un callback desconectado
+        // y getDocument().promise nunca resuelve ni rechaza → spinner infinito.
+        const PromiseAny = Promise as any; // polyfill: any necesario para asignar Promise.try
+        if (typeof PromiseAny["try"] !== "function") {
+          PromiseAny["try"] = function <T>(fn: () => T | PromiseLike<T>): Promise<T> {
+            return new Promise<T>((resolve) => resolve(fn()));
+          };
+        }
+
         const pdfjsLib = await import("pdfjs-dist");
-        // Worker desde public/pdf.worker.min.mjs (el middleware excluye .mjs del matcher)
-        // Se convierte a blob URL para satisfacer worker-src blob: del CSP
-        const res = await fetch("/pdf.worker.min.mjs");
-        if (!res.ok) throw new Error(`worker HTTP ${res.status}`);
-        const blob = await res.blob();
-        pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+        // Worker desde public/pdf.worker.min.mjs
+        // El middleware ya excluye .mjs del matcher, así que llega directo al CDN de Vercel.
+        // Lo convertimos a blob URL para satisfacer worker-src blob: del CSP.
+        try {
+          const res = await fetch("/pdf.worker.min.mjs");
+          if (!res.ok) throw new Error(`worker HTTP ${res.status}`);
+          const blob = await res.blob();
+          pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+        } catch {
+          // Si el worker no carga, pdfjs caerá al fake worker (main thread).
+          // El polyfill de Promise.try asegura que no se cuelgue.
+        }
+
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         if (cancelled) return;
+        clearTimeout(fallbackTimer);
         pdfRef.current = pdf as unknown as { getPage: (n: number) => Promise<unknown> };
         setTotalPages(pdf.numPages);
         setCurrentPage(1);
         await renderPage(1);
       } catch {
         if (!cancelled) {
+          clearTimeout(fallbackTimer);
           setLoading(false);
-          setPdfFailed(true); // Modo fallback: mostrar cuadrícula visual
+          setPdfFailed(true);
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(fallbackTimer);
+    };
   }, [file, renderPage]);
 
   useEffect(() => {
