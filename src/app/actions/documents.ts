@@ -387,7 +387,7 @@ export async function uploadDocumentMultiAction(
     const correoFirmante = f.correo.trim().toLowerCase();
 
     // Insert firmante
-    const { data: firmante } = await admin.from("firmantes").insert({
+    const { data: firmante, error: insertError } = await admin.from("firmantes").insert({
       documento_id: docId,
       nombre: nombreFirmante,
       correo: correoFirmante,
@@ -400,16 +400,13 @@ export async function uploadDocumentMultiAction(
       campo_alto: f.campo_alto,
     }).select("token").single();
 
-    if (!firmante) return;
+    if (insertError || !firmante) {
+      console.error(`[Firmiu] ERROR insert firmante ${orden + 1} (${correoFirmante}):`, insertError?.message ?? "firmante null");
+      return;
+    }
 
     const signingUrl = `${appUrl}/firmar/${firmante.token}`;
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`\n📄 FIRMIU — Firmante ${orden + 1}: ${correoFirmante}`);
-      console.log(`   Token:  ${firmante.token}`);
-      console.log(`   Código: ${verificationCode}`);
-      console.log(`   URL:    ${signingUrl}`);
-    }
+    console.log(`[Firmiu] Firmante ${orden + 1}: ${correoFirmante} | token: ${firmante.token} | doc: ${docId}`);
 
     try {
       await resend.emails.send({
