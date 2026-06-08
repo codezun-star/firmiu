@@ -82,17 +82,12 @@ export default function PdfPosicionador({
       setPdfFailed(false);
       try {
         const pdfjsLib = await import("pdfjs-dist");
-        // Intentar cargar worker desde API route (sirve desde node_modules)
-        try {
-          const res = await fetch("/api/pdf-worker");
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const blob = await res.blob();
-          pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-        } catch {
-          // Si falla el worker, continuar sin configurarlo y dejar que pdfjs falle
-          // El catch externo lo manejará
-          throw new Error("worker_unavailable");
-        }
+        // Worker desde public/pdf.worker.min.mjs (el middleware excluye .mjs del matcher)
+        // Se convierte a blob URL para satisfacer worker-src blob: del CSP
+        const res = await fetch("/pdf.worker.min.mjs");
+        if (!res.ok) throw new Error(`worker HTTP ${res.status}`);
+        const blob = await res.blob();
+        pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         if (cancelled) return;
