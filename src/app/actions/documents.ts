@@ -440,7 +440,10 @@ export async function uploadDocumentMultiAction(
           </div>
         `,
       });
-    } catch { /* email failed, non-fatal */ }
+      console.log(`[Firmiu] Email enviado a firmante ${orden + 1}: ${correoFirmante} (doc: ${docId})`);
+    } catch (err) {
+      console.error(`[Firmiu] ERROR email firmante ${orden + 1} (${correoFirmante}):`, err instanceof Error ? err.message : String(err));
+    }
   }));
 
   if (subId) {

@@ -98,10 +98,9 @@ export default function PdfPosicionador({
         }
 
         const pdfjsLib = await import("pdfjs-dist");
-        // Worker desde CDN de jsDelivr — evita todos los problemas de archivos locales.
-        // CSP actualizado: worker-src y script-src incluyen https://cdn.jsdelivr.net
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+        // Worker local desde public/ — evita CSP de terceros y latencia CDN.
+        // El middleware excluye .mjs del matcher para que Next.js lo sirva como estático.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
