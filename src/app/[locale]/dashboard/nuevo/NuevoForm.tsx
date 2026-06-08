@@ -116,10 +116,12 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
     if (!firmantes.every(f => f.posicion !== null)) { setErrorKey("position_required"); return; }
 
     startTransition(async () => {
-      const result = await uploadDocumentMultiAction({
-        pdfFile: file!,
-        locale,
-        firmantes: firmantes.map(f => ({
+      // File no es serializable como argumento plano — debe ir en FormData
+      const formData = new FormData();
+      formData.append("pdf", file!);
+      formData.append("locale", locale);
+      formData.append("firmantes", JSON.stringify(
+        firmantes.map(f => ({
           nombre: f.nombre.trim(),
           correo: f.correo.trim().toLowerCase(),
           pagina: f.posicion!.pagina,
@@ -127,8 +129,9 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
           campo_y: f.posicion!.campo_y,
           campo_ancho: f.posicion!.campo_ancho,
           campo_alto: f.posicion!.campo_alto,
-        })),
-      });
+        }))
+      ));
+      const result = await uploadDocumentMultiAction(formData);
       if (result.success) {
         setModalSubtitle(
           firmantes.length === 1

@@ -285,15 +285,20 @@ export interface FirmanteInput {
   campo_alto: number;
 }
 
-export async function uploadDocumentMultiAction({
-  pdfFile,
-  locale,
-  firmantes,
-}: {
-  pdfFile: File;
-  locale: string;
-  firmantes: FirmanteInput[];
-}): Promise<{ errorKey: string | null; success: boolean }> {
+export async function uploadDocumentMultiAction(
+  formData: FormData
+): Promise<{ errorKey: string | null; success: boolean }> {
+  const pdfFile = formData.get("pdf") as File | null;
+  const locale   = (formData.get("locale") as string) ?? "es";
+  const firmantesJson = (formData.get("firmantes") as string) ?? "[]";
+
+  let firmantes: FirmanteInput[];
+  try {
+    firmantes = JSON.parse(firmantesJson) as FirmanteInput[];
+  } catch {
+    return { errorKey: "signers_data_invalid", success: false };
+  }
+
   if (!pdfFile || pdfFile.size === 0) return { errorKey: "pdf_required", success: false };
   if (!pdfFile.name.toLowerCase().endsWith(".pdf") || pdfFile.type !== "application/pdf")
     return { errorKey: "pdf_invalid", success: false };
