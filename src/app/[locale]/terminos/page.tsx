@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buildAlternates, buildOgLocale } from "@/lib/seo";
 import { useTranslations } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import Link from "next/link";
@@ -24,21 +25,13 @@ export async function generateMetadata({ params: { locale } }: TerminosPageProps
     title,
     description,
     keywords: t("meta_keywords"),
-    alternates: {
-      canonical: `${base}${prefix}/terminos`,
-      languages: {
-        es: `${base}/terminos`,
-        en: `${base}/en/terminos`,
-        "x-default": `${base}/terminos`,
-      },
-    },
+    alternates: buildAlternates(locale, "/terminos"),
     openGraph: {
       title,
       description,
       url: `${base}${prefix}/terminos`,
       siteName: "Firmiu",
-      locale: locale === "es" ? "es_419" : "en_US",
-      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
+      ...buildOgLocale(locale),
       type: "website",
       images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },

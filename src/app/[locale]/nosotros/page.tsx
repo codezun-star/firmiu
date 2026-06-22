@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buildAlternates, buildOgLocale } from "@/lib/seo";
 import { getTranslations } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
 import Navbar from "@/components/Navbar";
@@ -23,21 +24,13 @@ export async function generateMetadata({ params: { locale } }: NosotrosPageProps
     title,
     description,
     keywords: t("meta_keywords"),
-    alternates: {
-      canonical: `${base}${prefix}/nosotros`,
-      languages: {
-        es: `${base}/nosotros`,
-        en: `${base}/en/nosotros`,
-        "x-default": `${base}/nosotros`,
-      },
-    },
+    alternates: buildAlternates(locale, "/nosotros"),
     openGraph: {
       title,
       description,
       url: `${base}${prefix}/nosotros`,
       siteName: "Firmiu",
-      locale: locale === "es" ? "es_419" : "en_US",
-      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
+      ...buildOgLocale(locale),
       type: "website",
       images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },

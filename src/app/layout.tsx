@@ -1,68 +1,50 @@
-import type { Metadata } from "next";
-import Script from "next/script";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://firmiu.com";
 const defaultOgImage = `${baseUrl}/api/og?title=Firma+Digital+para+Latinoam%C3%A9rica`;
 
+/**
+ * Root layout — passthrough.
+ *
+ * The actual <html>/<body> are rendered by `app/[locale]/layout.tsx` (so the
+ * `lang` attribute always reflects the active locale) and by the global
+ * `app/not-found.tsx`. Rendering them here too would produce nested <html>
+ * tags and strip the language signal at the document root.
+ *
+ * Metadata still lives here because Next.js collects metadata exports from any
+ * layout in the tree, regardless of whether it renders markup.
+ */
 export const metadata: Metadata = {
-  title: "Firmiu — Digital Document Signing",
+  title: "Firmiu — Firma Digital de Documentos",
   description:
-    "Send PDFs for digital signature. Fast, secure, and paperless. Legally valid across Latin America.",
+    "Envía PDFs para firma digital. Rápido, seguro y sin papel. Con validez legal en toda Latinoamérica, España y EE. UU.",
   metadataBase: new URL(baseUrl),
+  applicationName: "Firmiu",
+  manifest: "/manifest.webmanifest",
   openGraph: {
     siteName: "Firmiu",
     type: "website",
-    images: [{ url: defaultOgImage, width: 1200, height: 630, alt: "Firmiu — Firma Digital para Latinoamérica" }],
+    images: [
+      {
+        url: defaultOgImage,
+        width: 1200,
+        height: 630,
+        alt: "Firmiu — Firma Digital para Latinoamérica",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     images: [defaultOgImage],
   },
   robots: { index: true, follow: true },
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
-    shortcut: "/favicon-32x32.png",
-  },
-  other: {
-    "geo.region": "CR",
-    "geo.placename": "San José, Costa Rica",
-    "geo.position": "9.9281;-84.0907",
-    ICBM: "9.9281, -84.0907",
-  },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-      </head>
-      <body suppressHydrationWarning>
-        {children}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-9WDRMFRCCB"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-9WDRMFRCCB');
-          `}
-        </Script>
-      </body>
-    </html>
-  );
+export const viewport: Viewport = {
+  themeColor: "#1a3c5e",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

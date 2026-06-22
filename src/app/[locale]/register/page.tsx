@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buildAlternates, buildOgLocale } from "@/lib/seo";
 import { getTranslations } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
 import AuthPageShell from "@/components/AuthPageShell";
@@ -24,21 +25,13 @@ export async function generateMetadata({ params: { locale } }: RegisterPageProps
     title,
     description,
     keywords: t("meta_keywords"),
-    alternates: {
-      canonical: `${base}${prefix}/register`,
-      languages: {
-        es: `${base}/register`,
-        en: `${base}/en/register`,
-        "x-default": `${base}/register`,
-      },
-    },
+    alternates: buildAlternates(locale, "/register"),
     openGraph: {
       title,
       description,
       url: `${base}${prefix}/register`,
       siteName: "Firmiu",
-      locale: locale === "es" ? "es_419" : "en_US",
-      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
+      ...buildOgLocale(locale),
       type: "website",
       images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },

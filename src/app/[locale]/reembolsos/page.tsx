@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
 import type { Metadata } from "next";
+import { buildAlternates, buildOgLocale } from "@/lib/seo";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -23,21 +24,13 @@ export async function generateMetadata({ params: { locale } }: ReembolsosPagePro
     title,
     description,
     keywords: t("meta_keywords"),
-    alternates: {
-      canonical: `${base}${prefix}/reembolsos`,
-      languages: {
-        es: `${base}/reembolsos`,
-        en: `${base}/en/reembolsos`,
-        "x-default": `${base}/reembolsos`,
-      },
-    },
+    alternates: buildAlternates(locale, "/reembolsos"),
     openGraph: {
       title,
       description,
       url: `${base}${prefix}/reembolsos`,
       siteName: "Firmiu",
-      locale: locale === "es" ? "es_419" : "en_US",
-      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
+      ...buildOgLocale(locale),
       type: "website",
       images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },

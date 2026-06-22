@@ -42,6 +42,16 @@ export default function Footer() {
                   {t("pricing_link")}
                 </a>
               </li>
+              <li>
+                <Link href={`${prefix}/firma-electronica`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                  {t("countries_link")}
+                </Link>
+              </li>
+              <li>
+                <Link href={`${prefix}/firma-digital-para`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                  {t("solutions_link")}
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -54,6 +64,11 @@ export default function Footer() {
               <li>
                 <Link href={`${prefix}/nosotros`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("about_link")}
+                </Link>
+              </li>
+              <li>
+                <Link href={`${prefix}/blog`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                  {t("blog_link")}
                 </Link>
               </li>
               <li>

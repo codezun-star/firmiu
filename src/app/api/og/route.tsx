@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     "Chile",
     "Perú",
     "Costa Rica",
-    "+12 países",
+    "+36 países",
   ];
 
   return new ImageResponse(

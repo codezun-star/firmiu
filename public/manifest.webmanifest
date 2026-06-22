@@ -1,0 +1,27 @@
+{
+  "name": "Firmiu — Firma Digital de Documentos",
+  "short_name": "Firmiu",
+  "description": "Envía y firma documentos PDF en segundos, con validez legal en Latinoamérica, España y EE. UU.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f2640",
+  "theme_color": "#1a3c5e",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/logo",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
 import CtaBanner from "@/components/landing/CtaBanner";
 import { locales } from "@/i18n";
+import { buildAlternates, buildOgLocale } from "@/lib/seo";
 
 interface HomePageProps {
   params: { locale: string };
@@ -49,21 +50,13 @@ export async function generateMetadata({ params: { locale } }: HomePageProps): P
     title,
     description: descriptions[locale] ?? descriptions.es,
     keywords: keywords[locale] ?? keywords.es,
-    alternates: {
-      canonical: canonicalUrl,
-      languages: {
-        es: baseUrl,
-        en: `${baseUrl}/en`,
-        "x-default": baseUrl,
-      },
-    },
+    alternates: buildAlternates(locale, ""),
     openGraph: {
       title,
       description: descriptions[locale] ?? descriptions.es,
       url: canonicalUrl,
       siteName: "Firmiu",
-      locale: locale === "es" ? "es_419" : "en_US",
-      alternateLocale: locale === "es" ? ["en_US"] : ["es_419"],
+      ...buildOgLocale(locale),
       type: "website",
       images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
@@ -104,7 +97,7 @@ export default async function HomePage({ params: { locale } }: HomePageProps) {
         "@id": `${baseUrl}/#organization`,
         name: "Firmiu",
         url: baseUrl,
-        logo: `${baseUrl}/logo.png`,
+        logo: `${baseUrl}/api/logo`,
         description: descriptions[locale] ?? descriptions.es,
         foundingDate: "2024",
         areaServed: LATAM_COUNTRIES.map((name) => ({
