@@ -79,13 +79,29 @@ export async function deleteAccountAction(): Promise<DeleteAccountResult> {
       .delete()
       .eq("owner_id", user.id);
 
-    // 4. Delete subscription record
+    // 4. Delete the user's stored PDFs. The DB cascade does not touch Storage,
+    //    so without this the original + signed PDFs (with the signer's IP and
+    //    location in the audit trail) would persist after account deletion.
+    for (const bucket of ["pdfs-originales", "pdfs-firmados"]) {
+      try {
+        const { data: files } = await admin.storage.from(bucket).list(user.id, { limit: 1000 });
+        if (files && files.length > 0) {
+          await admin.storage
+            .from(bucket)
+            .remove(files.map((f) => `${user.id}/${f.name}`));
+        }
+      } catch {
+        // Non-fatal: account deletion must proceed even if storage cleanup fails
+      }
+    }
+
+    // 5. Delete subscription record
     await admin
       .from("suscripciones")
       .delete()
       .eq("owner_id", user.id);
 
-    // 5. Delete user from Supabase Auth
+    // 6. Delete user from Supabase Auth
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error) throw error;
 

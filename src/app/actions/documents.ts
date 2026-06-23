@@ -6,6 +6,7 @@ import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { escapeHtml, isValidEmail, isValidUUID, sanitizeText } from "@/lib/security";
+import { emailShell, codeBox, ctaButton } from "@/lib/email";
 import { getPrefix } from "@/lib/utils";
 
 export type DocumentState = {
@@ -14,6 +15,17 @@ export type DocumentState = {
   destinatario?: string;
   titulo?: string;
 };
+
+/**
+ * Verify the file is really a PDF by its magic bytes, not just the extension
+ * and MIME type (both client-controlled). The "%PDF-" header must appear at the
+ * very start; we scan a small window to tolerate generators that prepend a few
+ * bytes.
+ */
+async function hasPdfMagicBytes(file: File): Promise<boolean> {
+  const head = await file.slice(0, 1024).arrayBuffer();
+  return Buffer.from(head).includes("%PDF-");
+}
 
 export async function uploadDocumentAction(
   prevState: DocumentState,
@@ -32,6 +44,9 @@ export async function uploadDocumentAction(
   }
   if (pdfFile.size > 20 * 1024 * 1024) {
     return { errorKey: "pdf_too_large", success: false };
+  }
+  if (!(await hasPdfMagicBytes(pdfFile))) {
+    return { errorKey: "pdf_invalid", success: false };
   }
   if (!nombreDestinatario) {
     return { errorKey: "name_required", success: false };
@@ -150,43 +165,28 @@ export async function uploadDocumentAction(
       from: "Firmiu <noreply@firmiu.com>",
       to: correoDestinatario,
       subject: `${ownerName} te envió un documento para firmar`,
-      html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
-          <!-- Header -->
-          <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
-            <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
-          </div>
-          <!-- Body -->
-          <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
-            <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Tienes un documento para firmar</h2>
-            <p style="color:#374151;margin:0 0 24px;line-height:1.6">
-              <strong>${ownerName}</strong> te ha enviado el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
-            </p>
-            <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;text-align:center;margin:0 0 24px">
-              <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#f97316">${verificationCode}</span>
-            </div>
-            <a href="${signingUrl}" style="background:#f97316;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
-              Firmar documento →
-            </a>
-            <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
-              Si no esperabas este documento, puedes ignorar este correo.<br>
-              Este enlace es de uso único y expira una vez firmado.
-            </p>
-          </div>
-        </div>
-      `,
+      html: emailShell(`
+        <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Tienes un documento para firmar</h2>
+        <p style="color:#374151;margin:0 0 24px;line-height:1.6">
+          <strong>${ownerName}</strong> te ha enviado el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
+        </p>
+        <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
+        ${codeBox(verificationCode)}
+        ${ctaButton(signingUrl, "Firmar documento →")}
+        <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+          Si no esperabas este documento, puedes ignorar este correo.<br>
+          Este enlace es de uso único y expira una vez firmado.
+        </p>
+      `),
     });
   } catch {
     // Email failed — document is created, signing link remains valid
   }
 
-  // Increment monthly counter for paid plans (non-fatal if migration not applied)
+  // Increment monthly counter for paid plans — atomic RPC avoids lost updates
+  // under concurrent uploads (non-fatal if migration not applied)
   if (subId) {
-    await admin
-      .from("suscripciones")
-      .update({ documentos_mes: subDocsMes + 1, actualizado_en: new Date().toISOString() })
-      .eq("id", subId);
+    await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
   }
 
   revalidatePath("/dashboard");
@@ -227,6 +227,12 @@ export async function resendSigningEmailAction(
 
   if (!firma) return { error: "generic" };
 
+  // Resending gives the signer a fresh chance: clear any brute-force lockout
+  await admin
+    .from("firmas")
+    .update({ intentos_fallidos: 0, bloqueado: false })
+    .eq("documento_id", doc.id);
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const signingUrl = `${appUrl}/firmar/${doc.token}`;
   const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
@@ -239,30 +245,19 @@ export async function resendSigningEmailAction(
       from: "Firmiu <noreply@firmiu.com>",
       to: doc.correo_destinatario,
       subject: `${ownerName} te reenvió un documento para firmar`,
-      html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
-          <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
-            <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
-          </div>
-          <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
-            <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Documento pendiente de firma</h2>
-            <p style="color:#374151;margin:0 0 24px;line-height:1.6">
-              <strong>${ownerName}</strong> te reenvió el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
-            </p>
-            <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;text-align:center;margin:0 0 24px">
-              <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#f97316">${verificationCode}</span>
-            </div>
-            <a href="${signingUrl}" style="background:#f97316;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
-              Firmar documento →
-            </a>
-            <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
-              Si no esperabas este documento, puedes ignorar este correo.<br>
-              Este enlace es de uso único y expira una vez firmado.
-            </p>
-          </div>
-        </div>
-      `,
+      html: emailShell(`
+        <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Documento pendiente de firma</h2>
+        <p style="color:#374151;margin:0 0 24px;line-height:1.6">
+          <strong>${ownerName}</strong> te reenvió el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
+        </p>
+        <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
+        ${codeBox(verificationCode)}
+        ${ctaButton(signingUrl, "Firmar documento →")}
+        <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+          Si no esperabas este documento, puedes ignorar este correo.<br>
+          Este enlace es de uso único y expira una vez firmado.
+        </p>
+      `),
     });
   } catch {
     return { error: "email_failed" };
@@ -303,6 +298,7 @@ export async function uploadDocumentMultiAction(
   if (!pdfFile.name.toLowerCase().endsWith(".pdf") || pdfFile.type !== "application/pdf")
     return { errorKey: "pdf_invalid", success: false };
   if (pdfFile.size > 20 * 1024 * 1024) return { errorKey: "pdf_too_large", success: false };
+  if (!(await hasPdfMagicBytes(pdfFile))) return { errorKey: "pdf_invalid", success: false };
   if (!firmantes || firmantes.length === 0) return { errorKey: "min_signers", success: false };
   if (firmantes.length > 5) return { errorKey: "signers_data_invalid", success: false };
 
@@ -413,29 +409,18 @@ export async function uploadDocumentMultiAction(
         from: "Firmiu <noreply@firmiu.com>",
         to: correoFirmante,
         subject: `${ownerName} te envió un documento para firmar`,
-        html: `
-          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
-            <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
-              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
-            </div>
-            <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
-              <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Tienes un documento para firmar</h2>
-              <p style="color:#374151;margin:0 0 24px;line-height:1.6">
-                <strong>${ownerName}</strong> te ha enviado el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
-              </p>
-              <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
-              <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;text-align:center;margin:0 0 24px">
-                <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#f97316">${verificationCode}</span>
-              </div>
-              <a href="${signingUrl}" style="background:#f97316;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
-                Firmar documento →
-              </a>
-              <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
-                Si no esperabas este documento, puedes ignorar este correo.
-              </p>
-            </div>
-          </div>
-        `,
+        html: emailShell(`
+          <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Tienes un documento para firmar</h2>
+          <p style="color:#374151;margin:0 0 24px;line-height:1.6">
+            <strong>${ownerName}</strong> te ha enviado el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
+          </p>
+          <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
+          ${codeBox(verificationCode)}
+          ${ctaButton(signingUrl, "Firmar documento →")}
+          <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+            Si no esperabas este documento, puedes ignorar este correo.
+          </p>
+        `),
       });
       console.log(`[Firmiu] Email enviado a firmante ${orden + 1}: ${correoFirmante} (doc: ${docId})`);
     } catch (err) {
@@ -444,10 +429,7 @@ export async function uploadDocumentMultiAction(
   }));
 
   if (subId) {
-    await admin
-      .from("suscripciones")
-      .update({ documentos_mes: subDocsMes + 1, actualizado_en: new Date().toISOString() })
-      .eq("id", subId);
+    await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
   }
 
   revalidatePath("/dashboard");
@@ -488,6 +470,13 @@ export async function resendFirmantesEmailAction(
 
   if (!pendingFirmantes || pendingFirmantes.length === 0) return { error: "already_signed" };
 
+  // Resending gives signers a fresh chance: clear any brute-force lockout
+  await admin
+    .from("firmantes")
+    .update({ intentos_fallidos: 0, bloqueado: false })
+    .eq("documento_id", documentoId)
+    .neq("estado", "firmado");
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
   const tituloEscaped = escapeHtml(doc.titulo);
@@ -499,28 +488,17 @@ export async function resendFirmantesEmailAction(
         from: "Firmiu <noreply@firmiu.com>",
         to: f.correo,
         subject: `${ownerName} te reenvió un documento para firmar`,
-        html: `
-          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
-            <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
-              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
-            </div>
-            <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
-              <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Documento pendiente de firma</h2>
-              <p style="color:#374151;margin:0 0 24px;line-height:1.6">
-                <strong>${ownerName}</strong> te reenvió <strong>&ldquo;${tituloEscaped}&rdquo;</strong>.
-              </p>
-              <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;text-align:center;margin:0 0 24px">
-                <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#f97316">${f.codigo_verificacion}</span>
-              </div>
-              <a href="${appUrl}/firmar/${f.token}" style="background:#f97316;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
-                Firmar documento →
-              </a>
-              <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
-                Si no esperabas este documento, puedes ignorar este correo.
-              </p>
-            </div>
-          </div>
-        `,
+        html: emailShell(`
+          <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Documento pendiente de firma</h2>
+          <p style="color:#374151;margin:0 0 24px;line-height:1.6">
+            <strong>${ownerName}</strong> te reenvió <strong>&ldquo;${tituloEscaped}&rdquo;</strong>.
+          </p>
+          ${codeBox(String(f.codigo_verificacion ?? ""))}
+          ${ctaButton(`${appUrl}/firmar/${f.token}`, "Firmar documento →")}
+          <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+            Si no esperabas este documento, puedes ignorar este correo.
+          </p>
+        `),
       })
     ));
   } catch {

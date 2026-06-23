@@ -7,7 +7,11 @@ import { PDFDocument, PDFPage, PDFImage, rgb, StandardFonts } from "pdf-lib";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isValidUUID, isValidVerificationCode, escapeHtml } from "@/lib/security";
+import { emailShell, ctaButtonNavy } from "@/lib/email";
 import { getPrefix } from "@/lib/utils";
+
+/** Signing links expire 30 days after the document was created. */
+const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface SignResult {
   errorKey: string | null;
@@ -122,6 +126,31 @@ function drawSignatureOnPage(
   });
 }
 
+// ── Audit-trail page labels (the page is PDF content, not UI, so the strings
+//    live here rather than in messages/*.json) ─────────────────────────────────
+const AUDIT_LABELS = {
+  es: {
+    title: "REGISTRO DE FIRMA DIGITAL",
+    auditTitle: "DOCUMENTO FIRMADO DIGITALMENTE",
+    firmante: "Firmante:", correo: "Correo:", fecha: "Fecha:", hora: "Hora:",
+    ip: "IP:", dispositivo: "Dispositivo:", ubicacion: "Ubicacion:",
+    red: "Red:", documento: "Documento:",
+    noDisponible: "No disponible",
+    vpn: "VPN/Proxy detectado (!)", hosting: "Datacenter/Hosting (!)",
+    legal: "Este registro tiene validez legal para contratos privados conforme a las leyes de firma electronica. - firmiu.com",
+  },
+  en: {
+    title: "DIGITAL SIGNATURE RECORD",
+    auditTitle: "DIGITALLY SIGNED DOCUMENT",
+    firmante: "Signer:", correo: "Email:", fecha: "Date:", hora: "Time:",
+    ip: "IP:", dispositivo: "Device:", ubicacion: "Location:",
+    red: "Network:", documento: "Document:",
+    noDisponible: "Not available",
+    vpn: "VPN/Proxy detected (!)", hosting: "Datacenter/Hosting (!)",
+    legal: "This record is legally valid for private contracts under electronic-signature laws. - firmiu.com",
+  },
+} as const;
+
 // ── Append audit trail page ──────────────────────────────────────────────────
 async function addSignaturePage(
   pdfDoc: PDFDocument,
@@ -129,17 +158,19 @@ async function addSignaturePage(
   opts: {
     nombre: string; correo: string; titulo: string;
     ip: string | null; now: Date; geo: GeoData | null;
-    browser: string; os: string; timezone?: string | null;
+    browser: string; os: string; timezone?: string | null; locale?: string;
   }
 ): Promise<void> {
-  const { nombre, correo, titulo, ip, now, geo, browser, os, timezone } = opts;
+  const { nombre, correo, titulo, ip, now, geo, browser, os, timezone, locale } = opts;
+  const L = locale === "en" ? AUDIT_LABELS.en : AUDIT_LABELS.es;
+  const intlLocale = locale === "en" ? "en" : "es";
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   const tz = geo?.timezone || timezone || "UTC";
   const tzShort = tz === "UTC" ? "UTC" : (tz.split("/").pop()?.replace(/_/g, " ") ?? tz);
-  const fecha = now.toLocaleDateString("es", { year: "numeric", month: "long", day: "numeric", timeZone: tz });
-  const hora = now.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: tz }) + ` (${tzShort})`;
+  const fecha = now.toLocaleDateString(intlLocale, { year: "numeric", month: "long", day: "numeric", timeZone: tz });
+  const hora = now.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: tz }) + ` (${tzShort})`;
 
   const darkBlue = rgb(0.102, 0.235, 0.369);
   const orange   = rgb(0.976, 0.451, 0.086);
@@ -158,7 +189,7 @@ async function addSignaturePage(
   const centerX = pageW / 2;
   const fromTop = (pt: number) => pageH - pt;
 
-  const titleText = "REGISTRO DE FIRMA DIGITAL";
+  const titleText = L.title;
   const titleSize = 14;
   const titleW = bold.widthOfTextAtSize(titleText, titleSize);
   sigPage.drawText(titleText, { x: centerX - titleW / 2, y: fromTop(54), size: titleSize, font: bold, color: darkBlue });
@@ -183,7 +214,7 @@ async function addSignaturePage(
 
   sigPage.drawLine({ start: { x: margin, y: fromTop(243) }, end: { x: margin + contentW, y: fromTop(243) }, thickness: 2, color: darkBlue });
 
-  const auditTitle = "DOCUMENTO FIRMADO DIGITALMENTE";
+  const auditTitle = L.auditTitle;
   const auditTitleW = bold.widthOfTextAtSize(auditTitle, 8);
   sigPage.drawText(auditTitle, { x: centerX - auditTitleW / 2, y: fromTop(259), size: 8, font: bold, color: darkBlue });
 
@@ -191,17 +222,17 @@ async function addSignaturePage(
 
   type Row = [string, string];
   const rows: Row[] = [
-    ["Firmante:", truncate(nombre)],
-    ["Correo:", truncate(correo)],
-    ["Fecha:", fecha],
-    ["Hora:", hora],
-    ["IP:", ip ?? "No disponible"],
-    ["Dispositivo:", truncate(`${os} - ${browser}`)],
+    [L.firmante, truncate(nombre)],
+    [L.correo, truncate(correo)],
+    [L.fecha, fecha],
+    [L.hora, hora],
+    [L.ip, ip ?? L.noDisponible],
+    [L.dispositivo, truncate(`${os} - ${browser}`)],
   ];
-  if (geo?.city) rows.push(["Ubicacion:", [geo.city, geo.regionName, geo.country].filter(Boolean).join(", ")]);
-  if (geo?.proxy) rows.push(["Red:", "VPN/Proxy detectado (!)"]);
-  else if (geo?.hosting) rows.push(["Red:", "Datacenter/Hosting (!)"]);
-  rows.push(["Documento:", truncate(titulo)]);
+  if (geo?.city) rows.push([L.ubicacion, [geo.city, geo.regionName, geo.country].filter(Boolean).join(", ")]);
+  if (geo?.proxy) rows.push([L.red, L.vpn]);
+  else if (geo?.hosting) rows.push([L.red, L.hosting]);
+  rows.push([L.documento, truncate(titulo)]);
 
   const rowSize = 8.5;
   const lineH = 12;
@@ -218,7 +249,7 @@ async function addSignaturePage(
   sigPage.drawLine({ start: { x: margin, y }, end: { x: margin + contentW, y }, thickness: 0.4, color: lineGray });
   y -= 12;
   sigPage.drawText(
-    "Este registro tiene validez legal para contratos privados conforme a las leyes de firma electronica. - firmiu.com",
+    L.legal,
     { x: labelX, y, size: 6.5, font, color: rgb(0.5, 0.5, 0.5) }
   );
 }
@@ -328,7 +359,7 @@ async function signFirmante({
 
   // Token expiration: 30 days
   const createdAt = new Date(doc.creado_en as string);
-  if (now.getTime() - createdAt.getTime() > 30 * 24 * 60 * 60 * 1000)
+  if (now.getTime() - createdAt.getTime() > TOKEN_TTL_MS)
     return { errorKey: "not_found" };
 
   const ip = getRequestIp();
@@ -364,7 +395,7 @@ async function signFirmante({
     // 2. Append audit trail page
     await addSignaturePage(pdfDoc, pngImage, {
       nombre: firmante.nombre, correo: firmante.correo,
-      titulo: doc.titulo, ip, now, geo, browser, os, timezone,
+      titulo: doc.titulo, ip, now, geo, browser, os, timezone, locale,
     });
 
     const signedBytes = await pdfDoc.save();
@@ -416,28 +447,19 @@ async function signFirmante({
             from: "Firmiu <noreply@firmiu.com>",
             to: ownerData.user.email,
             subject: `Tu documento "${tituloEscaped}" fue firmado por todos`,
-            html: `
-              <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
-                <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
-                  <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
-                </div>
-                <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
-                  <div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:16px;margin:0 0 24px">
-                    <span style="color:#10b981;font-weight:600;font-size:15px">✓ Todos los firmantes han firmado</span>
-                  </div>
-                  <p style="color:#374151;margin:0 0 16px;line-height:1.6">
-                    El documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> fue firmado por todos los destinatarios.
-                    El PDF final con audit trail ya está disponible.
-                  </p>
-                  <a href="${appUrl}${prefix}/dashboard/documentos" style="background:#1a3c5e;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
-                    Descargar en el panel →
-                  </a>
-                  <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
-                    Firmiu — Firma digital para Latinoamérica · firmiu.com
-                  </p>
-                </div>
+            html: emailShell(`
+              <div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:16px;margin:0 0 24px">
+                <span style="color:#10b981;font-weight:600;font-size:15px">✓ Todos los firmantes han firmado</span>
               </div>
-            `,
+              <p style="color:#374151;margin:0 0 16px;line-height:1.6">
+                El documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> fue firmado por todos los destinatarios.
+                El PDF final con audit trail ya está disponible.
+              </p>
+              ${ctaButtonNavy(`${appUrl}${prefix}/dashboard/documentos`, "Descargar en el panel →")}
+              <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+                Firmiu — Firma digital para Latinoamérica · firmiu.com
+              </p>
+            `),
           });
         }
       } catch { /* non-fatal */ }
@@ -470,7 +492,7 @@ async function signLegacy({
   if (doc.estado === "firmado") return { errorKey: "already_signed" };
 
   const docCreatedAt = new Date(doc.creado_en as string);
-  if (now.getTime() - docCreatedAt.getTime() > 30 * 24 * 60 * 60 * 1000)
+  if (now.getTime() - docCreatedAt.getTime() > TOKEN_TTL_MS)
     return { errorKey: "not_found" };
 
   const { data: firma } = await admin
@@ -504,7 +526,7 @@ async function signLegacy({
 
     await addSignaturePage(pdfDoc, pngImage, {
       nombre: doc.nombre_destinatario, correo: doc.correo_destinatario,
-      titulo: doc.titulo, ip, now, geo, browser, os, timezone,
+      titulo: doc.titulo, ip, now, geo, browser, os, timezone, locale,
     });
 
     const signedBytes = await pdfDoc.save();
@@ -531,27 +553,18 @@ async function signLegacy({
         from: "Firmiu <noreply@firmiu.com>",
         to: ownerData.user.email,
         subject: `Tu documento "${tituloEscaped}" fue firmado`,
-        html: `
-          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:0;background:#ffffff">
-            <div style="background:#1a3c5e;padding:24px 32px;border-radius:12px 12px 0 0">
-              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px">firmiu</span>
-            </div>
-            <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
-              <div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:16px;margin:0 0 24px">
-                <span style="color:#10b981;font-weight:600;font-size:15px">✓ Documento firmado exitosamente</span>
-              </div>
-              <p style="color:#374151;margin:0 0 16px;line-height:1.6">
-                <strong>${firmante}</strong> firmó el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong>.
-              </p>
-              <a href="${appUrl}${prefix}/dashboard/documentos" style="background:#1a3c5e;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;font-size:15px;margin:0 0 24px">
-                Ver en el panel →
-              </a>
-              <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
-                Firmiu — firmiu.com
-              </p>
-            </div>
+        html: emailShell(`
+          <div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:16px;margin:0 0 24px">
+            <span style="color:#10b981;font-weight:600;font-size:15px">✓ Documento firmado exitosamente</span>
           </div>
-        `,
+          <p style="color:#374151;margin:0 0 16px;line-height:1.6">
+            <strong>${firmante}</strong> firmó el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong>.
+          </p>
+          ${ctaButtonNavy(`${appUrl}${prefix}/dashboard/documentos`, "Ver en el panel →")}
+          <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+            Firmiu — firmiu.com
+          </p>
+        `),
       });
     }
   } catch { /* non-fatal */ }

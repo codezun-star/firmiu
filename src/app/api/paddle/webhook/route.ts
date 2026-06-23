@@ -12,10 +12,14 @@ const PRICE_PLAN: Record<string, { plan: string; limit: number }> = {
 function mapStatus(status: string): string {
   switch (status) {
     case "active":   return "active";
+    case "trialing": return "active"; // trials get access
     case "canceled": return "canceled";
     case "past_due": return "past_due";
     case "paused":   return "paused";
-    default:         return "active";
+    // Unknown status: return as-is. It won't match the "active"/"canceling"
+    // access gate, so we fail closed (treated as free) instead of granting
+    // access on an unexpected status.
+    default:         return status || "past_due";
   }
 }
 
@@ -91,31 +95,33 @@ export async function POST(request: NextRequest) {
   const { event_type, data } = payload;
   const admin = createAdminClient();
 
-  console.log("[paddle-webhook] event:", event_type);
-  console.log("[paddle-webhook] sub:", data.id);
-  console.log("[paddle-webhook] custom_data:", JSON.stringify(data.custom_data ?? null));
-  console.log("[paddle-webhook] customer:", JSON.stringify(data.customer ?? null));
+  // Log only non-PII operational data (no body/email/custom_data dumps —
+  // these land in Vercel logs and would leak customer emails).
+  console.log("[paddle-webhook] event:", event_type, "sub:", data.id);
 
   if (event_type === "subscription.created" || event_type === "subscription.activated") {
     const priceId  = data.items?.[0]?.price?.id ?? "";
     const planInfo = PRICE_PLAN[priceId] ?? { plan: "starter", limit: 30 };
 
-    console.log("[paddle-webhook] priceId:", priceId, "→ plan:", planInfo.plan);
-    console.log("[paddle-webhook] body completo:", JSON.stringify({ event_type, data }, null, 2));
-
     let ownerId = data.custom_data?.owner_id;
-    console.log("[paddle-webhook] owner_id desde custom_data:", ownerId);
 
     // Fallback: buscar usuario por email del cliente si owner_id no llegó
     if (!ownerId) {
       const customerEmail = data.customer?.email;
-      console.log("[paddle-webhook] owner_id null — buscando por email:", customerEmail);
 
       if (customerEmail) {
+        const target = customerEmail.toLowerCase();
         try {
-          const { data: { users } } = await admin.auth.admin.listUsers();
-          const found = users?.find((u) => u.email === customerEmail);
-          ownerId = found?.id;
+          // Paginate: listUsers() returns only the first page (~50 users), so
+          // it silently fails to find anyone once the user base grows.
+          const perPage = 200;
+          for (let page = 1; page <= 50 && !ownerId; page++) {
+            const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+            if (error || !data?.users?.length) break;
+            const found = data.users.find((u) => u.email?.toLowerCase() === target);
+            if (found) ownerId = found.id;
+            if (data.users.length < perPage) break; // last page reached
+          }
           console.log("[paddle-webhook] owner_id encontrado por email:", ownerId);
         } catch (e) {
           console.error("[paddle-webhook] error buscando usuario por email:", e);
@@ -124,14 +130,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!ownerId) {
-      console.error("[paddle-webhook] no se pudo obtener owner_id — custom_data:", data.custom_data);
+      console.error("[paddle-webhook] no se pudo obtener owner_id para sub:", data.id);
       await logWebhook(admin, event_type, data.custom_data, null, "error: owner_id not found");
       // Retornamos 200 para evitar reintentos de Paddle que nunca resolverán este caso
       return NextResponse.json({ ok: true, warning: "owner_id_missing" });
     }
 
     try {
-      const { data: upsertData, error } = await admin.from("suscripciones").upsert(
+      const { error } = await admin.from("suscripciones").upsert(
         {
           owner_id:               ownerId,
           paddle_subscription_id: data.id,
@@ -146,8 +152,7 @@ export async function POST(request: NextRequest) {
         },
         { onConflict: "owner_id" }
       );
-      console.log("[paddle-webhook] upsert data:", JSON.stringify(upsertData));
-      console.log("[paddle-webhook] upsert error:", JSON.stringify(error));
+      if (error) console.error("[paddle-webhook] upsert error:", error.message);
 
       const resultado = error ? `error: ${error.message}` : "ok";
       await logWebhook(admin, event_type, data.custom_data, ownerId, resultado);
