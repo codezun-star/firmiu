@@ -68,8 +68,8 @@ export default function PdfPosicionador({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       await page.render({ canvasContext: ctx, viewport }).promise;
-    } catch {
-      // error rendering page — already in pdfFailed mode or will be
+    } catch (err) {
+      console.error("[PdfPosicionador] page render failed:", err);
     } finally {
       setLoading(false);
     }
@@ -92,15 +92,40 @@ export default function PdfPosicionador({
         // y getDocument().promise nunca resuelve ni rechaza → spinner infinito.
         const PromiseAny = Promise as any; // polyfill: any necesario para asignar Promise.try
         if (typeof PromiseAny["try"] !== "function") {
-          PromiseAny["try"] = function <T>(fn: () => T | PromiseLike<T>): Promise<T> {
-            return new Promise<T>((resolve) => resolve(fn()));
+          // Must forward arguments and convert sync throws to rejections, exactly
+          // like the native Promise.try. The previous version dropped the args,
+          // which made pdf.js fail with "Cannot destructure property 'docId'".
+          PromiseAny["try"] = function <T>(
+            fn: (...a: unknown[]) => T | PromiseLike<T>,
+            ...args: unknown[]
+          ): Promise<T> {
+            return new Promise<T>((resolve, reject) => {
+              try { resolve(fn(...args)); } catch (e) { reject(e); }
+            });
           };
         }
 
         const pdfjsLib = await import("pdfjs-dist");
-        // Worker local desde public/ — evita CSP de terceros y latencia CDN.
-        // El middleware excluye .mjs del matcher para que Next.js lo sirva como estático.
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+
+        // Hand pdf.js the worker as a blob: URL with an explicit JS MIME type.
+        // Reason: our global `X-Content-Type-Options: nosniff` header makes the
+        // browser refuse to load /pdf.worker.min.mjs as a module worker whenever
+        // the host (e.g. Vercel) serves it with a non-JS Content-Type. That
+        // failure also breaks pdf.js's main-thread fallback (it imports the same
+        // file), leaving the preview permanently unavailable. Blob-wrapping the
+        // worker sets the MIME ourselves and sidesteps the host entirely.
+        // CSP already allows this via `worker-src 'self' blob:`.
+        let workerSrc = "/pdf.worker.min.mjs";
+        try {
+          const res = await fetch(workerSrc);
+          if (res.ok) {
+            const code = await res.text();
+            workerSrc = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+          }
+        } catch {
+          // Keep the path fallback; pdf.js will attempt to load it directly.
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -110,7 +135,9 @@ export default function PdfPosicionador({
         setTotalPages(pdf.numPages);
         setCurrentPage(1);
         await renderPage(1);
-      } catch {
+      } catch (err) {
+        // Surface the real cause — the empty catch made worker failures invisible.
+        console.error("[PdfPosicionador] PDF preview failed:", err);
         if (!cancelled) {
           clearTimeout(fallbackTimer);
           setLoading(false);
