@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { PDFDocument, PDFPage, PDFImage, rgb, StandardFonts } from "pdf-lib";
@@ -132,6 +133,12 @@ const AUDIT_LABELS = {
   es: {
     title: "REGISTRO DE FIRMA DIGITAL",
     certTitle: "CERTIFICADO DE FIRMA DIGITAL",
+    completedOn: "Completado el",
+    signersWord: "firmantes",
+    signerWord: "firmante",
+    integrity: "INTEGRIDAD DEL DOCUMENTO",
+    fingerprint: "Huella SHA-256:",
+    folio: "Folio:",
     auditTitle: "DOCUMENTO FIRMADO DIGITALMENTE",
     firmante: "Firmante:", correo: "Correo:", fecha: "Fecha:", hora: "Hora:",
     ip: "IP:", dispositivo: "Dispositivo:", ubicacion: "Ubicacion:",
@@ -143,6 +150,12 @@ const AUDIT_LABELS = {
   en: {
     title: "DIGITAL SIGNATURE RECORD",
     certTitle: "DIGITAL SIGNATURE CERTIFICATE",
+    completedOn: "Completed on",
+    signersWord: "signers",
+    signerWord: "signer",
+    integrity: "DOCUMENT INTEGRITY",
+    fingerprint: "SHA-256 fingerprint:",
+    folio: "Reference:",
     auditTitle: "DIGITALLY SIGNED DOCUMENT",
     firmante: "Signer:", correo: "Email:", fecha: "Date:", hora: "Time:",
     ip: "IP:", dispositivo: "Device:", ubicacion: "Location:",
@@ -281,12 +294,16 @@ const SIGNER_BORDER_COLORS = [
   rgb(0.937, 0.267, 0.267), // #EF4444
 ];
 
+function titleCase(name: string): string {
+  return name.replace(/\S+/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 async function addCertificatePage(
   pdfDoc: PDFDocument,
   signers: CertSigner[],
-  titulo: string,
-  locale?: string
+  opts: { titulo: string; completedAt: Date; hash: string; folio: string; locale?: string }
 ): Promise<void> {
+  const { titulo, completedAt, hash, folio, locale } = opts;
   const L = locale === "en" ? AUDIT_LABELS.en : AUDIT_LABELS.es;
   const intlLocale = locale === "en" ? "en" : "es";
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -294,7 +311,7 @@ async function addCertificatePage(
 
   const darkBlue = rgb(0.102, 0.235, 0.369);
   const textGray = rgb(0.216, 0.255, 0.318);
-  const lineGray = rgb(0.85, 0.85, 0.85);
+  const softGray = rgb(0.42, 0.45, 0.5);
 
   const origPages = pdfDoc.getPages();
   const { width: pageW, height: pageH } = origPages.length > 0
@@ -306,38 +323,63 @@ async function addCertificatePage(
   const centerX = pageW / 2;
   const fromTop = (pt: number) => pageH - pt;
 
-  // ── Header ──
-  const title = L.certTitle;
-  const tW = bold.widthOfTextAtSize(title, 14);
-  page.drawText(title, { x: centerX - tW / 2, y: fromTop(52), size: 14, font: bold, color: darkBlue });
+  const drawCentered = (text: string, y: number, size: number, f = font, color = textGray) => {
+    const w = f.widthOfTextAtSize(text, size);
+    page.drawText(text, { x: centerX - w / 2, y, size, font: f, color });
+  };
 
-  const sub = "firmiu.com";
-  const sW = font.widthOfTextAtSize(sub, 9);
-  page.drawText(sub, { x: centerX - sW / 2, y: fromTop(68), size: 9, font, color: darkBlue });
+  // ── Header + completion summary ──
+  drawCentered(L.certTitle, fromTop(50), 15, bold, darkBlue);
+  drawCentered("firmiu.com", fromTop(66), 9, font, darkBlue);
+  drawCentered(`${L.documento} ${truncate(titulo, 56)}`, fromTop(86), 9, font, textGray);
 
-  const docLine = `${L.documento} ${truncate(titulo, 58)}`;
-  const dW = font.widthOfTextAtSize(docLine, 9);
-  page.drawText(docLine, { x: centerX - dW / 2, y: fromTop(88), size: 9, font, color: textGray });
+  const tz0 = signers[0]?.timezone || "UTC";
+  const completedStr = completedAt.toLocaleDateString(intlLocale, { year: "numeric", month: "long", day: "numeric", timeZone: tz0 });
+  const word = signers.length === 1 ? L.signerWord : L.signersWord;
+  drawCentered(`${L.completedOn} ${completedStr} · ${signers.length} ${word}`, fromTop(101), 8.5, font, softGray);
 
-  page.drawLine({ start: { x: margin, y: fromTop(102) }, end: { x: margin + contentW, y: fromTop(102) }, thickness: 1.5, color: darkBlue });
+  page.drawLine({ start: { x: margin, y: fromTop(113) }, end: { x: margin + contentW, y: fromTop(113) }, thickness: 1.5, color: darkBlue });
 
-  // ── Signer blocks ──
-  const headerBottom = 110;
-  const footerSpace = 46;
-  const available = pageH - headerBottom - footerSpace;
-  const blockH = Math.min(138, available / signers.length);
-  const thumbW = 150;
+  // ── Integrity box (anchored above the footer) ──
+  const boxH = hash ? 62 : 46;
+  const boxBottom = 46;
+  const boxTop = boxBottom + boxH;
+  page.drawRectangle({ x: margin, y: boxBottom, width: contentW, height: boxH, color: rgb(0.97, 0.98, 0.99), borderColor: rgb(0.8, 0.85, 0.9), borderWidth: 0.8 });
+  let iy = boxTop - 16;
+  page.drawText(L.integrity, { x: margin + 12, y: iy, size: 8, font: bold, color: darkBlue });
+  iy -= 15;
+  if (hash) {
+    page.drawText(L.fingerprint, { x: margin + 12, y: iy, size: 7.5, font: bold, color: textGray });
+    page.drawText(hash, { x: margin + 12 + bold.widthOfTextAtSize(L.fingerprint, 7.5) + 4, y: iy, size: 7, font, color: textGray });
+    iy -= 14;
+  }
+  page.drawText(L.folio, { x: margin + 12, y: iy, size: 7.5, font: bold, color: textGray });
+  page.drawText(folio, { x: margin + 12 + bold.widthOfTextAtSize(L.folio, 7.5) + 4, y: iy, size: 7, font, color: textGray });
+
+  // ── Signer cards (centered between the header and the integrity box) ──
+  const regionTopY = fromTop(125);
+  const regionBottomY = boxTop + 14;
+  const regionH = regionTopY - regionBottomY;
+  const gap = 10;
+  const cardH = Math.min(150, regionH / signers.length);
+  const groupH = cardH * signers.length;
+  const firstTopY = regionTopY - Math.max(0, (regionH - groupH) / 2);
 
   for (let i = 0; i < signers.length; i++) {
     const s = signers[i];
-    const borderColor = SIGNER_BORDER_COLORS[(s.orden - 1) % SIGNER_BORDER_COLORS.length] ?? darkBlue;
-    const blockTop = fromTop(headerBottom + i * blockH);
+    const color = SIGNER_BORDER_COLORS[(s.orden - 1) % SIGNER_BORDER_COLORS.length] ?? darkBlue;
+    const cardTop = firstTopY - i * cardH;
+    const cardEffH = cardH - gap;
+    const cardBottom = cardTop - cardEffH;
 
-    // Signature thumbnail box (right)
-    const thumbH = Math.min(56, blockH - 18);
-    const thumbX = margin + contentW - thumbW;
-    const thumbY = blockTop - thumbH;
-    page.drawRectangle({ x: thumbX, y: thumbY, width: thumbW, height: thumbH, color: rgb(0.99, 0.99, 0.995), borderColor, borderWidth: 1 });
+    page.drawRectangle({ x: margin, y: cardBottom, width: contentW, height: cardEffH, color: rgb(0.992, 0.995, 1), borderColor: color, borderWidth: 1 });
+
+    // Signature thumbnail (right)
+    const thumbW = 140;
+    const thumbH = Math.min(52, cardEffH - 16);
+    const thumbX = margin + contentW - thumbW - 10;
+    const thumbY = cardTop - thumbH - 10;
+    page.drawRectangle({ x: thumbX, y: thumbY, width: thumbW, height: thumbH, color: rgb(1, 1, 1), borderColor: rgb(0.88, 0.9, 0.92), borderWidth: 0.6 });
     if (s.firmaPng) {
       try {
         const bytes = Buffer.from(s.firmaPng.replace(/^data:image\/png;base64,/, ""), "base64");
@@ -346,44 +388,38 @@ async function addCertificatePage(
         const maxW = thumbW - padX * 2, maxH = thumbH - padY * 2;
         const sc = Math.min(maxW / img.width, maxH / img.height);
         const w = img.width * sc, h = img.height * sc;
-        page.drawImage(img, { x: thumbX + padX + (maxW - w) / 2, y: thumbY + padY + (maxH - h) / 2, width: w, height: h, opacity: 0.9 });
+        page.drawImage(img, { x: thumbX + padX + (maxW - w) / 2, y: thumbY + padY + (maxH - h) / 2, width: w, height: h, opacity: 0.92 });
       } catch { /* skip thumbnail if image is bad */ }
     }
 
-    // Text column (left)
-    const tz = s.timezone || "UTC";
-    const tzShort = tz === "UTC" ? "UTC" : (tz.split("/").pop()?.replace(/_/g, " ") ?? tz);
-    const fecha = s.firmadoEn.toLocaleDateString(intlLocale, { year: "numeric", month: "long", day: "numeric", timeZone: tz });
-    const hora = s.firmadoEn.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", timeZone: tz }) + ` (${tzShort})`;
+    // Text (left)
+    const lx = margin + 12;
+    page.drawText(`${s.orden} · ${truncate(titleCase(s.nombre), 32)}`, { x: lx, y: cardTop - 18, size: 11, font: bold, color: darkBlue });
 
-    const lx = margin + 4;
-    page.drawText(`${s.orden} · ${truncate(s.nombre, 38)}`, { x: lx, y: blockTop - 12, size: 11, font: bold, color: darkBlue });
+    const stz = s.timezone || "UTC";
+    const tzShort = stz === "UTC" ? "UTC" : (stz.split("/").pop()?.replace(/_/g, " ") ?? stz);
+    const fecha = s.firmadoEn.toLocaleDateString(intlLocale, { year: "numeric", month: "long", day: "numeric", timeZone: stz });
+    const hora = s.firmadoEn.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", timeZone: stz }) + ` (${tzShort})`;
 
     const rows: Array<[string, string]> = [
-      [L.correo, truncate(s.correo, 46)],
-      [L.fecha, fecha],
-      [L.hora, hora],
+      [L.correo, truncate(s.correo, 38)],
+      [L.fecha, `${fecha} · ${hora}`],
       [L.ip, s.ip ?? L.noDisponible],
-      [L.dispositivo, truncate(s.dispositivo, 40)],
+      [L.dispositivo, truncate(s.dispositivo, 36)],
     ];
-    if (s.ubicacion) rows.push([L.ubicacion, truncate(s.ubicacion, 46)]);
+    if (s.ubicacion) rows.push([L.ubicacion, truncate(s.ubicacion, 38)]);
     if (s.vpn) rows.push([L.red, L.vpn]);
 
-    let ly = blockTop - 28;
+    let ly = cardTop - 34;
     for (const [lab, val] of rows) {
       page.drawText(lab, { x: lx, y: ly, size: 8, font: bold, color: textGray });
-      page.drawText(val, { x: lx + 74, y: ly, size: 8, font, color: textGray });
-      ly -= 11;
-    }
-
-    if (i < signers.length - 1) {
-      const sep = blockTop - blockH + 6;
-      page.drawLine({ start: { x: margin, y: sep }, end: { x: margin + contentW, y: sep }, thickness: 0.4, color: lineGray });
+      page.drawText(val, { x: lx + 72, y: ly, size: 8, font, color: textGray });
+      ly -= 11.5;
     }
   }
 
   // ── Footer ──
-  page.drawText(L.legal, { x: margin + 4, y: 32, size: 6.5, font, color: rgb(0.5, 0.5, 0.5) });
+  page.drawText(L.legal, { x: margin + 4, y: 30, size: 6.5, font, color: rgb(0.55, 0.55, 0.55) });
 }
 
 // ── Helper: get request IP ───────────────────────────────────────────────────
@@ -572,7 +608,17 @@ async function signFirmante({
         },
       ].sort((a, b) => a.orden - b.orden);
 
-      await addCertificatePage(pdfDoc, signers, doc.titulo, locale);
+      // Document fingerprint: SHA-256 of the ORIGINAL uploaded PDF. Proves the
+      // signed content matches exactly what was sent. Non-fatal if it fails.
+      let docHash = "";
+      try {
+        const { data: origBlob } = await admin.storage.from("pdfs-originales").download(doc.url_pdf_original);
+        if (origBlob) docHash = crypto.createHash("sha256").update(Buffer.from(await origBlob.arrayBuffer())).digest("hex");
+      } catch { /* non-fatal */ }
+
+      await addCertificatePage(pdfDoc, signers, {
+        titulo: doc.titulo, completedAt: now, hash: docHash, folio: doc.id, locale,
+      });
     }
 
     const signedBytes = await pdfDoc.save();

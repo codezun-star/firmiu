@@ -39,12 +39,16 @@ export default function FirmarClient({
 }: FirmarClientProps) {
   const t = useTranslations("sign");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
   const [code, setCode] = useState(["", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [modalRedirectTo, setModalRedirectTo] = useState<string | null>(null);
+  const [mode, setMode] = useState<"draw" | "upload">("draw");
+  const [uploadedPng, setUploadedPng] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   // Set canvas internal resolution to match its CSS size after layout
   useEffect(() => {
@@ -143,8 +147,64 @@ export default function FirmarClient({
       document.getElementById(`otp-${i - 1}`)?.focus();
   }
 
+  // ── Upload signature image ──────────────────────────────────
+  // Scale the image down and turn the near-white background transparent so an
+  // uploaded photo of a signature looks like the drawn ones (dark strokes, no
+  // white box) on both the document and the certificate.
+  function processSignatureImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) return reject(new Error("type"));
+      if (file.size > 10 * 1024 * 1024) return reject(new Error("size"));
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, 800 / img.width);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        const ctx = c.getContext("2d");
+        if (!ctx) return reject(new Error("ctx"));
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          const data = ctx.getImageData(0, 0, w, h);
+          const px = data.data;
+          for (let i = 0; i < px.length; i += 4) {
+            if (px[i] > 240 && px[i + 1] > 240 && px[i + 2] > 240) px[i + 3] = 0;
+          }
+          ctx.putImageData(data, 0, 0);
+        } catch { /* keep image as-is if pixel access fails */ }
+        resolve(c.toDataURL("image/png"));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("load")); };
+      img.src = url;
+    });
+  }
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setProcessing(true);
+    try {
+      setUploadedPng(await processSignatureImage(file));
+    } catch {
+      setUploadedPng(null);
+      toast.error(t("upload_error"));
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  const hasSignature = mode === "draw" ? !isEmpty : !!uploadedPng;
+
   async function handleSign() {
-    if (isEmpty || !canvasRef.current) {
+    const signaturePng =
+      mode === "draw"
+        ? (canvasRef.current && !isEmpty ? canvasRef.current.toDataURL("image/png") : null)
+        : uploadedPng;
+    if (!signaturePng) {
       toast.error(t("errors.signature_required"));
       return;
     }
@@ -153,7 +213,6 @@ export default function FirmarClient({
       toast.error(t("errors.invalid_code"));
       return;
     }
-    const signaturePng = canvasRef.current.toDataURL("image/png");
     const userAgent = window.navigator.userAgent;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     setLoading(true);
@@ -257,43 +316,120 @@ export default function FirmarClient({
           )}
         </div>
 
-        {/* Step 2: Signature canvas */}
+        {/* Step 2: Signature — draw or upload */}
         <div className="bg-white rounded-[14px] border-[0.5px] border-[#E5E7EB] p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#FFF7ED] flex items-center justify-center shrink-0">
-                <span className="text-[#F97316] text-xs font-bold">2</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[#111827] leading-tight">{t("draw_signature")}</p>
-                <p className="text-[11px] text-[#9CA3AF]">{t("canvas_hint")}</p>
-              </div>
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-[#FFF7ED] flex items-center justify-center shrink-0">
+              <span className="text-[#F97316] text-xs font-bold">2</span>
             </div>
-            <button
-              type="button"
-              onClick={clearCanvas}
-              className="text-xs font-medium text-[#6B7280] hover:text-[#111827] border border-[#E5E7EB] rounded-lg px-2.5 py-1 transition-colors"
-            >
-              {t("clear")}
-            </button>
+            <div>
+              <p className="text-sm font-semibold text-[#111827] leading-tight">{t("draw_signature")}</p>
+              <p className="text-[11px] text-[#9CA3AF]">{mode === "draw" ? t("canvas_hint") : t("upload_hint")}</p>
+            </div>
           </div>
-          <div className={`rounded-xl border-2 border-dashed transition-colors overflow-hidden ${
-            isEmpty ? "border-[#F97316]/40 bg-[#FFF7ED]/20" : "border-[#10B981]/40 bg-white"
-          }`}>
-            <canvas
-              ref={canvasRef}
-              style={{ width: "100%", height: "160px", display: "block", touchAction: "none", cursor: "crosshair" }}
-              onMouseDown={startDraw}
-              onMouseMove={draw}
-              onMouseUp={stopDraw}
-              onMouseLeave={stopDraw}
-              onTouchStart={startDraw}
-              onTouchMove={draw}
-              onTouchEnd={stopDraw}
-            />
+
+          {/* Mode tabs */}
+          <div className="flex items-center gap-1 bg-[#F8F9FA] rounded-lg p-1 mb-4">
+            {(["draw", "upload"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
+                  mode === m ? "bg-white text-[#1a3c5e] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
+                }`}
+              >
+                {m === "draw" ? t("tab_draw") : t("tab_upload")}
+              </button>
+            ))}
           </div>
-          {isEmpty && (
-            <p className="text-[11px] text-[#9CA3AF] text-center mt-2">{t("canvas_hint")}</p>
+
+          {/* Draw area — canvas stays mounted so its internal size persists */}
+          <div className={mode === "draw" ? "" : "hidden"}>
+            <div className="flex justify-end mb-2">
+              <button
+                type="button"
+                onClick={clearCanvas}
+                className="text-xs font-medium text-[#6B7280] hover:text-[#111827] border border-[#E5E7EB] rounded-lg px-2.5 py-1 transition-colors"
+              >
+                {t("clear")}
+              </button>
+            </div>
+            <div className={`rounded-xl border-2 border-dashed transition-colors overflow-hidden ${
+              !isEmpty ? "border-[#10B981]/40 bg-white" : "border-[#F97316]/40 bg-[#FFF7ED]/20"
+            }`}>
+              <canvas
+                ref={canvasRef}
+                style={{ width: "100%", height: "160px", display: "block", touchAction: "none", cursor: "crosshair" }}
+                onMouseDown={startDraw}
+                onMouseMove={draw}
+                onMouseUp={stopDraw}
+                onMouseLeave={stopDraw}
+                onTouchStart={startDraw}
+                onTouchMove={draw}
+                onTouchEnd={stopDraw}
+              />
+            </div>
+          </div>
+
+          {/* Upload area */}
+          {mode === "upload" && (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleFileSelected}
+                className="hidden"
+              />
+              {uploadedPng ? (
+                <div className="rounded-xl border-2 border-[#10B981]/40 bg-white p-4 flex flex-col items-center gap-3">
+                  <div className="w-full h-[140px] flex items-center justify-center bg-[#F8F9FA] rounded-lg overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={uploadedPng} alt="firma" className="max-h-[120px] max-w-full object-contain" />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[#10B981] text-xs font-medium">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {t("upload_ready")}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs font-medium text-[#6B7280] hover:text-[#1a3c5e] border border-[#E5E7EB] rounded-lg px-3 py-1.5 transition-colors"
+                  >
+                    {t("upload_replace")}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={processing}
+                  className="w-full rounded-xl border-2 border-dashed border-[#F97316]/40 bg-[#FFF7ED]/20 py-8 px-4 flex flex-col items-center gap-2 hover:bg-[#FFF7ED]/40 transition-colors disabled:opacity-60"
+                >
+                  {processing ? (
+                    <>
+                      <svg className="animate-spin h-6 w-6 text-[#F97316]" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span className="text-xs text-[#6B7280]">{t("upload_processing")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-7 h-7 text-[#F97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span className="text-sm font-medium text-[#374151]">{t("upload_cta")}</span>
+                      <span className="text-[11px] text-[#9CA3AF] text-center">{t("upload_hint")}</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -334,7 +470,7 @@ export default function FirmarClient({
         <button
           type="button"
           onClick={handleSign}
-          disabled={loading}
+          disabled={loading || !hasSignature}
           className="w-full bg-[#F97316] hover:bg-[#EA580C] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3.5 px-4 rounded-[9px] transition-colors text-sm flex items-center justify-center gap-2"
         >
           {loading ? (
