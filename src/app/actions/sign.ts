@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isValidUUID, isValidVerificationCode, escapeHtml } from "@/lib/security";
 import { emailShell, ctaButtonNavy } from "@/lib/email";
-import { getPrefix } from "@/lib/utils";
+import { getPrefix, safeFilename } from "@/lib/utils";
 
 /** Signing links expire 30 days after the document was created. */
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -131,6 +131,7 @@ function drawSignatureOnPage(
 const AUDIT_LABELS = {
   es: {
     title: "REGISTRO DE FIRMA DIGITAL",
+    certTitle: "CERTIFICADO DE FIRMA DIGITAL",
     auditTitle: "DOCUMENTO FIRMADO DIGITALMENTE",
     firmante: "Firmante:", correo: "Correo:", fecha: "Fecha:", hora: "Hora:",
     ip: "IP:", dispositivo: "Dispositivo:", ubicacion: "Ubicacion:",
@@ -141,6 +142,7 @@ const AUDIT_LABELS = {
   },
   en: {
     title: "DIGITAL SIGNATURE RECORD",
+    certTitle: "DIGITAL SIGNATURE CERTIFICATE",
     auditTitle: "DIGITALLY SIGNED DOCUMENT",
     firmante: "Signer:", correo: "Email:", fecha: "Date:", hora: "Time:",
     ip: "IP:", dispositivo: "Device:", ubicacion: "Location:",
@@ -252,6 +254,136 @@ async function addSignaturePage(
     L.legal,
     { x: labelX, y, size: 6.5, font, color: rgb(0.5, 0.5, 0.5) }
   );
+}
+
+// ── Consolidated signature certificate (multi-signer) ────────────────────────
+// One page listing every signer IN ORDER with a signature thumbnail + audit
+// data. Replaces the per-signer audit page (which produced N pages in signing
+// order, each repeating a large signature).
+interface CertSigner {
+  orden: number;
+  nombre: string;
+  correo: string;
+  firmadoEn: Date;
+  ip: string | null;
+  dispositivo: string;
+  ubicacion: string | null;
+  vpn: boolean;
+  firmaPng: string | null;
+  timezone: string | null;
+}
+
+const SIGNER_BORDER_COLORS = [
+  rgb(0.102, 0.235, 0.369), // #1a3c5e
+  rgb(0.976, 0.451, 0.086), // #F97316
+  rgb(0.063, 0.725, 0.506), // #10B981
+  rgb(0.545, 0.361, 0.976), // #8B5CF6
+  rgb(0.937, 0.267, 0.267), // #EF4444
+];
+
+async function addCertificatePage(
+  pdfDoc: PDFDocument,
+  signers: CertSigner[],
+  titulo: string,
+  locale?: string
+): Promise<void> {
+  const L = locale === "en" ? AUDIT_LABELS.en : AUDIT_LABELS.es;
+  const intlLocale = locale === "en" ? "en" : "es";
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const darkBlue = rgb(0.102, 0.235, 0.369);
+  const textGray = rgb(0.216, 0.255, 0.318);
+  const lineGray = rgb(0.85, 0.85, 0.85);
+
+  const origPages = pdfDoc.getPages();
+  const { width: pageW, height: pageH } = origPages.length > 0
+    ? origPages[0].getSize() : { width: 595, height: 842 };
+
+  const page = pdfDoc.addPage([pageW, pageH]);
+  const margin = 50;
+  const contentW = pageW - margin * 2;
+  const centerX = pageW / 2;
+  const fromTop = (pt: number) => pageH - pt;
+
+  // ── Header ──
+  const title = L.certTitle;
+  const tW = bold.widthOfTextAtSize(title, 14);
+  page.drawText(title, { x: centerX - tW / 2, y: fromTop(52), size: 14, font: bold, color: darkBlue });
+
+  const sub = "firmiu.com";
+  const sW = font.widthOfTextAtSize(sub, 9);
+  page.drawText(sub, { x: centerX - sW / 2, y: fromTop(68), size: 9, font, color: darkBlue });
+
+  const docLine = `${L.documento} ${truncate(titulo, 58)}`;
+  const dW = font.widthOfTextAtSize(docLine, 9);
+  page.drawText(docLine, { x: centerX - dW / 2, y: fromTop(88), size: 9, font, color: textGray });
+
+  page.drawLine({ start: { x: margin, y: fromTop(102) }, end: { x: margin + contentW, y: fromTop(102) }, thickness: 1.5, color: darkBlue });
+
+  // ── Signer blocks ──
+  const headerBottom = 110;
+  const footerSpace = 46;
+  const available = pageH - headerBottom - footerSpace;
+  const blockH = Math.min(138, available / signers.length);
+  const thumbW = 150;
+
+  for (let i = 0; i < signers.length; i++) {
+    const s = signers[i];
+    const borderColor = SIGNER_BORDER_COLORS[(s.orden - 1) % SIGNER_BORDER_COLORS.length] ?? darkBlue;
+    const blockTop = fromTop(headerBottom + i * blockH);
+
+    // Signature thumbnail box (right)
+    const thumbH = Math.min(56, blockH - 18);
+    const thumbX = margin + contentW - thumbW;
+    const thumbY = blockTop - thumbH;
+    page.drawRectangle({ x: thumbX, y: thumbY, width: thumbW, height: thumbH, color: rgb(0.99, 0.99, 0.995), borderColor, borderWidth: 1 });
+    if (s.firmaPng) {
+      try {
+        const bytes = Buffer.from(s.firmaPng.replace(/^data:image\/png;base64,/, ""), "base64");
+        const img = await pdfDoc.embedPng(bytes);
+        const padX = 8, padY = 6;
+        const maxW = thumbW - padX * 2, maxH = thumbH - padY * 2;
+        const sc = Math.min(maxW / img.width, maxH / img.height);
+        const w = img.width * sc, h = img.height * sc;
+        page.drawImage(img, { x: thumbX + padX + (maxW - w) / 2, y: thumbY + padY + (maxH - h) / 2, width: w, height: h, opacity: 0.9 });
+      } catch { /* skip thumbnail if image is bad */ }
+    }
+
+    // Text column (left)
+    const tz = s.timezone || "UTC";
+    const tzShort = tz === "UTC" ? "UTC" : (tz.split("/").pop()?.replace(/_/g, " ") ?? tz);
+    const fecha = s.firmadoEn.toLocaleDateString(intlLocale, { year: "numeric", month: "long", day: "numeric", timeZone: tz });
+    const hora = s.firmadoEn.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", timeZone: tz }) + ` (${tzShort})`;
+
+    const lx = margin + 4;
+    page.drawText(`${s.orden} · ${truncate(s.nombre, 38)}`, { x: lx, y: blockTop - 12, size: 11, font: bold, color: darkBlue });
+
+    const rows: Array<[string, string]> = [
+      [L.correo, truncate(s.correo, 46)],
+      [L.fecha, fecha],
+      [L.hora, hora],
+      [L.ip, s.ip ?? L.noDisponible],
+      [L.dispositivo, truncate(s.dispositivo, 40)],
+    ];
+    if (s.ubicacion) rows.push([L.ubicacion, truncate(s.ubicacion, 46)]);
+    if (s.vpn) rows.push([L.red, L.vpn]);
+
+    let ly = blockTop - 28;
+    for (const [lab, val] of rows) {
+      page.drawText(lab, { x: lx, y: ly, size: 8, font: bold, color: textGray });
+      page.drawText(val, { x: lx + 74, y: ly, size: 8, font, color: textGray });
+      ly -= 11;
+    }
+
+    if (i < signers.length - 1) {
+      const sep = blockTop - blockH + 6;
+      page.drawLine({ start: { x: margin, y: sep }, end: { x: margin + contentW, y: sep }, thickness: 0.4, color: lineGray });
+    }
+  }
+
+  // ── Footer ──
+  page.drawText(L.legal, { x: margin + 4, y: 32, size: 6.5, font, color: rgb(0.5, 0.5, 0.5) });
 }
 
 // ── Helper: get request IP ───────────────────────────────────────────────────
@@ -369,6 +501,7 @@ async function signFirmante({
 
   const firmadoPath = `${doc.owner_id}/${doc.id}.pdf`;
   const signerIndex = (firmante.orden ?? 1) - 1;
+  const localeTz = geo?.timezone || timezone || null;
 
   try {
     // Download current PDF: use already-signed version if another signer went first
@@ -381,7 +514,7 @@ async function signFirmante({
     const pngBytes = Buffer.from(signaturePng.replace(/^data:image\/png;base64,/, ""), "base64");
     const pngImage = await pdfDoc.embedPng(pngBytes);
 
-    // 1. Place signature at the positioned field on the specified page
+    // 1. Place this signer's signature at their positioned field
     const pages = pdfDoc.getPages();
     const pageIndex = Math.max(0, Math.min(firmante.pagina - 1, pages.length - 1));
     drawSignatureOnPage(pages[pageIndex], pngImage, {
@@ -392,11 +525,55 @@ async function signFirmante({
       signerIndex,
     });
 
-    // 2. Append audit trail page
-    await addSignaturePage(pdfDoc, pngImage, {
-      nombre: firmante.nombre, correo: firmante.correo,
-      titulo: doc.titulo, ip, now, geo, browser, os, timezone, locale,
-    });
+    // 2. Are all OTHER signers already done? (this one isn't marked yet)
+    //    NOTE: requires migration 011 (firma_imagen, firma_timezone). If those
+    //    columns are missing the query errors — fail loudly instead of building
+    //    a wrong certificate.
+    const { data: others, error: othersErr } = await admin
+      .from("firmantes")
+      .select("orden, nombre, correo, estado, firmado_en, ip, navegador, sistema_operativo, ubicacion, vpn_detectado, firma_imagen, firma_timezone")
+      .eq("documento_id", doc.id)
+      .eq("oculto", false)
+      .neq("id", firmante.id);
+
+    if (othersErr) return { errorKey: "sign_failed" };
+
+    // Empty (single signer) → [].every() === true → allSigned. Correct.
+    const allSigned = (others ?? []).every(o => o.estado === "firmado");
+
+    // 3. On the FINAL signature, append ONE certificate page with every signer
+    //    in order (signature thumbnail + audit data). Replaces the old
+    //    per-signer audit page (N pages in signing-time order).
+    if (allSigned) {
+      const signers: CertSigner[] = [
+        ...(others ?? []).map(o => ({
+          orden:      (o.orden as number | null) ?? 1,
+          nombre:     o.nombre as string,
+          correo:     o.correo as string,
+          firmadoEn:  o.firmado_en ? new Date(o.firmado_en as string) : now,
+          ip:         (o.ip as string | null) ?? null,
+          dispositivo: `${o.sistema_operativo ?? "?"} - ${o.navegador ?? "?"}`,
+          ubicacion:  (o.ubicacion as string | null) ?? null,
+          vpn:        Boolean(o.vpn_detectado),
+          firmaPng:   (o.firma_imagen as string | null) ?? null,
+          timezone:   (o.firma_timezone as string | null) ?? null,
+        })),
+        {
+          orden:      firmante.orden ?? 1,
+          nombre:     firmante.nombre,
+          correo:     firmante.correo,
+          firmadoEn:  now,
+          ip,
+          dispositivo: `${os} - ${browser}`,
+          ubicacion:  geo ? `${geo.city}, ${geo.country}` : null,
+          vpn:        geo ? geo.proxy || geo.hosting : false,
+          firmaPng:   signaturePng,
+          timezone:   localeTz,
+        },
+      ].sort((a, b) => a.orden - b.orden);
+
+      await addCertificatePage(pdfDoc, signers, doc.titulo, locale);
+    }
 
     const signedBytes = await pdfDoc.save();
 
@@ -405,7 +582,8 @@ async function signFirmante({
       .upload(firmadoPath, signedBytes, { contentType: "application/pdf", upsert: true });
     if (uploadErr) return { errorKey: "sign_failed" };
 
-    // 3. Mark this firmante as signed
+    // 4. Mark this firmante as signed (store signature image + timezone so the
+    //    certificate can be rebuilt with every signer's thumbnail)
     await admin.from("firmantes").update({
       estado: "firmado",
       firmado_en: now.toISOString(),
@@ -415,26 +593,16 @@ async function signFirmante({
       vpn_detectado: geo ? geo.proxy || geo.hosting : false,
       ubicacion_ciudad: geo?.city ?? null,
       ubicacion_pais: geo?.country ?? null,
+      firma_imagen: signaturePng,
+      firma_timezone: localeTz,
     }).eq("id", firmante.id);
 
-    // 4. Update documento url_pdf_firmado
+    // 5. Update documento: signed path + estado (firmado when all done, else visto)
     await admin.from("documentos")
-      .update({ url_pdf_firmado: firmadoPath })
+      .update({ url_pdf_firmado: firmadoPath, estado: allSigned ? "firmado" : "visto" })
       .eq("id", doc.id);
 
-    // 5. Check if ALL firmantes for this document have signed
-    const { data: remaining } = await admin
-      .from("firmantes")
-      .select("id")
-      .eq("documento_id", doc.id)
-      .neq("estado", "firmado")
-      .eq("oculto", false);
-
-    const allSigned = !remaining || remaining.length === 0;
-
     if (allSigned) {
-      await admin.from("documentos").update({ estado: "firmado" }).eq("id", doc.id);
-
       // Notify owner only when all have signed
       try {
         const { data: ownerData } = await admin.auth.admin.getUserById(doc.owner_id);
@@ -463,9 +631,6 @@ async function signFirmante({
           });
         }
       } catch { /* non-fatal */ }
-    } else {
-      // Partial: mark documento as visto
-      await admin.from("documentos").update({ estado: "visto" }).eq("id", doc.id);
     }
   } catch {
     return { errorKey: "sign_failed" };
@@ -613,16 +778,17 @@ export async function downloadSignedPdfAction(token: string): Promise<DownloadRe
 
   const { data: doc } = await admin
     .from("documentos")
-    .select("url_pdf_firmado, estado")
+    .select("titulo, url_pdf_firmado, estado")
     .eq("id", docId)
     .single();
 
   if (!doc?.url_pdf_firmado || doc.estado !== "firmado")
     return { url: null, errorKey: "not_found" };
 
+  // Force the download to use the original document title, not the UUID storage path.
   const { data: urlData } = await admin.storage
     .from("pdfs-firmados")
-    .createSignedUrl(doc.url_pdf_firmado, 86400);
+    .createSignedUrl(doc.url_pdf_firmado, 86400, { download: `${safeFilename(doc.titulo)}.pdf` });
 
   if (!urlData?.signedUrl) return { url: null, errorKey: "expired" };
 

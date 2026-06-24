@@ -1,6 +1,7 @@
 import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { safeFilename } from "@/lib/utils";
 import DocumentosClient, { type DocumentoRow } from "./DocumentosClient";
 
 export const dynamic = "force-dynamic";
@@ -75,10 +76,21 @@ export default async function DocumentosPage({ params: { locale }, searchParams 
     ? await admin.storage.from("pdfs-originales").createSignedUrls(origPaths, 3600)
     : { data: null };
 
-  const firmPaths = rows.filter(d => d.url_pdf_firmado).map(d => d.url_pdf_firmado as string);
-  const { data: firmUrls } = firmPaths.length > 0
-    ? await admin.storage.from("pdfs-firmados").createSignedUrls(firmPaths, 3600)
-    : { data: null };
+  // Signed PDFs: one signed URL per doc so we can force a friendly download
+  // filename (the original title) instead of the UUID storage path.
+  const firmadoUrlByDoc: Record<string, string> = {};
+  await Promise.all(
+    rows
+      .filter(d => d.url_pdf_firmado)
+      .map(async (d) => {
+        const { data } = await admin.storage
+          .from("pdfs-firmados")
+          .createSignedUrl(d.url_pdf_firmado as string, 3600, {
+            download: `${safeFilename(d.titulo)}.pdf`,
+          });
+        if (data?.signedUrl) firmadoUrlByDoc[d.id] = data.signedUrl;
+      })
+  );
 
   /* ── Merge ── */
   const documents: DocumentoRow[] = rows.map(doc => ({
@@ -90,7 +102,7 @@ export default async function DocumentosPage({ params: { locale }, searchParams 
     token:               doc.token,
     creado_en:           doc.creado_en,
     signedOriginalUrl:   origUrls?.find(u => u.path === doc.url_pdf_original)?.signedUrl ?? null,
-    signedFirmadoUrl:    firmUrls?.find(u => u.path === doc.url_pdf_firmado)?.signedUrl ?? null,
+    signedFirmadoUrl:    firmadoUrlByDoc[doc.id] ?? null,
     firmantes:           firmantesByDoc[doc.id] ?? null,
   }));
 
