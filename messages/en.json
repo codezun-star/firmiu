@@ -376,7 +376,21 @@
     "signers_count": "{n} signers",
     "signed_count": "{signed}/{total} signed",
     "partial_signed": "Partially signed",
-    "resend_pending": "Resend to pending"
+    "resend_pending": "Resend to pending",
+    "details": {
+      "show": "View delivery details",
+      "hide": "Hide details",
+      "title": "Signers and sent emails",
+      "edit_email": "Fix email",
+      "save_resend": "Save & resend",
+      "email_updated": "Email updated",
+      "email_resent": "Email fixed and resent",
+      "email_invalid": "Invalid email, please check it",
+      "update_error": "Couldn't save the email",
+      "resent_one": "Email resent to this signer",
+      "signed_on": "Signed",
+      "not_sent_hint": "If an email is misspelled, fix it here and it will be resent."
+    }
   },
   "nuevo": {
     "title": "New document",

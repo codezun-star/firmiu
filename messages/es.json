@@ -376,7 +376,21 @@
     "signers_count": "{n} firmantes",
     "signed_count": "{signed}/{total} firmados",
     "partial_signed": "Parcialmente firmado",
-    "resend_pending": "Reenviar a pendientes"
+    "resend_pending": "Reenviar a pendientes",
+    "details": {
+      "show": "Ver detalle del envío",
+      "hide": "Ocultar detalle",
+      "title": "Firmantes y correos enviados",
+      "edit_email": "Corregir correo",
+      "save_resend": "Guardar y reenviar",
+      "email_updated": "Correo actualizado",
+      "email_resent": "Correo corregido y reenviado",
+      "email_invalid": "Correo inválido, revísalo",
+      "update_error": "No se pudo guardar el correo",
+      "resent_one": "Correo reenviado a este firmante",
+      "signed_on": "Firmó",
+      "not_sent_hint": "Si un correo está mal escrito, corrígelo aquí y se reenviará."
+    }
   },
   "nuevo": {
     "title": "Nuevo documento",

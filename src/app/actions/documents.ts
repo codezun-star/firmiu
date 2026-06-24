@@ -508,6 +508,156 @@ export async function resendFirmantesEmailAction(
   return { error: null };
 }
 
+// Reenviar el correo a UN firmante específico (multi-firmante)
+export async function resendFirmanteEmailAction(
+  firmanteId: string,
+  locale: string
+): Promise<{ error: string | null }> {
+  if (!isValidUUID(firmanteId)) return { error: "generic" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "generic" };
+
+  const admin = createAdminClient();
+  const { data: firmante } = await admin
+    .from("firmantes")
+    .select("id, documento_id, nombre, correo, estado, token, codigo_verificacion")
+    .eq("id", firmanteId)
+    .maybeSingle();
+
+  if (!firmante) return { error: "generic" };
+  if (firmante.estado === "firmado") return { error: "already_signed" };
+
+  // Ownership: el documento debe ser del usuario autenticado
+  const { data: doc } = await supabase
+    .from("documentos")
+    .select("id, titulo")
+    .eq("id", firmante.documento_id)
+    .eq("owner_id", user.id)
+    .eq("oculto", false)
+    .single();
+
+  if (!doc) return { error: "generic" };
+
+  // Reenviar da una oportunidad limpia: limpia el bloqueo brute-force de este firmante
+  await admin
+    .from("firmantes")
+    .update({ intentos_fallidos: 0, bloqueado: false })
+    .eq("id", firmante.id);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
+  const tituloEscaped = escapeHtml(doc.titulo);
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  try {
+    await resend.emails.send({
+      from: "Firmiu <noreply@firmiu.com>",
+      to: firmante.correo,
+      subject: `${ownerName} te reenvió un documento para firmar`,
+      html: emailShell(`
+        <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Documento pendiente de firma</h2>
+        <p style="color:#374151;margin:0 0 24px;line-height:1.6">
+          <strong>${ownerName}</strong> te reenvió <strong>&ldquo;${tituloEscaped}&rdquo;</strong>.
+        </p>
+        ${codeBox(String(firmante.codigo_verificacion ?? ""))}
+        ${ctaButton(`${appUrl}/firmar/${firmante.token}`, "Firmar documento →")}
+        <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+          Si no esperabas este documento, puedes ignorar este correo.
+        </p>
+      `),
+    });
+  } catch {
+    return { error: "email_failed" };
+  }
+
+  const prefix = getPrefix(locale);
+  revalidatePath(`${prefix}/dashboard/documentos`);
+  return { error: null };
+}
+
+// Corregir el correo de un firmante (solo si aún no firmó)
+export async function updateFirmanteEmailAction(
+  firmanteId: string,
+  correoRaw: string,
+  locale: string
+): Promise<{ error: string | null }> {
+  if (!isValidUUID(firmanteId)) return { error: "generic" };
+  const correo = (correoRaw ?? "").trim().toLowerCase().slice(0, 320);
+  if (!isValidEmail(correo)) return { error: "email_invalid" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "generic" };
+
+  const admin = createAdminClient();
+  const { data: firmante } = await admin
+    .from("firmantes")
+    .select("id, documento_id, estado")
+    .eq("id", firmanteId)
+    .maybeSingle();
+
+  if (!firmante) return { error: "generic" };
+  if (firmante.estado === "firmado") return { error: "already_signed" };
+
+  // Ownership
+  const { data: doc } = await supabase
+    .from("documentos")
+    .select("id")
+    .eq("id", firmante.documento_id)
+    .eq("owner_id", user.id)
+    .eq("oculto", false)
+    .single();
+
+  if (!doc) return { error: "generic" };
+
+  const { error } = await admin.from("firmantes").update({ correo }).eq("id", firmanteId);
+  if (error) return { error: "generic" };
+
+  const prefix = getPrefix(locale);
+  revalidatePath(`${prefix}/dashboard/documentos`);
+  return { error: null };
+}
+
+// Corregir el correo del destinatario en documentos antiguos (single-signer / tabla firmas)
+export async function updateDocumentEmailAction(
+  documentoId: string,
+  correoRaw: string,
+  locale: string
+): Promise<{ error: string | null }> {
+  if (!isValidUUID(documentoId)) return { error: "generic" };
+  const correo = (correoRaw ?? "").trim().toLowerCase().slice(0, 320);
+  if (!isValidEmail(correo)) return { error: "email_invalid" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "generic" };
+
+  const { data: doc } = await supabase
+    .from("documentos")
+    .select("id, estado")
+    .eq("id", documentoId)
+    .eq("owner_id", user.id)
+    .eq("oculto", false)
+    .single();
+
+  if (!doc) return { error: "generic" };
+  if (doc.estado === "firmado") return { error: "already_signed" };
+
+  const { error } = await supabase
+    .from("documentos")
+    .update({ correo_destinatario: correo })
+    .eq("id", documentoId)
+    .eq("owner_id", user.id);
+
+  if (error) return { error: "generic" };
+
+  const prefix = getPrefix(locale);
+  revalidatePath(`${prefix}/dashboard/documentos`);
+  return { error: null };
+}
+
 export async function hideDocumentAction(
   id: string,
   locale: string

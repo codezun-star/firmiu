@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { hideDocumentAction, resendSigningEmailAction, resendFirmantesEmailAction } from "@/app/actions/documents";
+import {
+  hideDocumentAction,
+  resendSigningEmailAction,
+  resendFirmantesEmailAction,
+  resendFirmanteEmailAction,
+  updateFirmanteEmailAction,
+  updateDocumentEmailAction,
+} from "@/app/actions/documents";
 import { toast } from "@/lib/toast";
 
 type Estado = "pendiente" | "visto" | "firmado";
@@ -73,6 +80,174 @@ function DocIcon() {
   );
 }
 
+/* ── Per-document delivery detail: name + email + status of each signer, with
+      inline email correction + per-signer resend ── */
+
+interface SignerEntry {
+  key: string;
+  actionId: string;
+  kind: "firmante" | "legacy";
+  nombre: string;
+  correo: string;
+  estado: string;
+  token: string;
+}
+
+function buildEntries(doc: DocumentoRow): SignerEntry[] {
+  if (doc.firmantes && doc.firmantes.length > 0) {
+    return doc.firmantes.map(f => ({
+      key: f.id, actionId: f.id, kind: "firmante" as const,
+      nombre: f.nombre, correo: f.correo, estado: f.estado, token: f.token,
+    }));
+  }
+  return [{
+    key: doc.id, actionId: doc.id, kind: "legacy" as const,
+    nombre: doc.nombre_destinatario, correo: doc.correo_destinatario,
+    estado: doc.estado, token: doc.token,
+  }];
+}
+
+function SignerDetailPanel({ doc, locale, appUrl }: { doc: DocumentoRow; locale: string; appUrl: string }) {
+  const t = useTranslations("documents");
+  const router = useRouter();
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [draft, setDraft]           = useState("");
+  const [busyKey, setBusyKey]       = useState<string | null>(null);
+  const [copiedKey, setCopiedKey]   = useState<string | null>(null);
+
+  const entries = buildEntries(doc);
+
+  const statusDot = (e: string) =>
+    e === "firmado" ? "bg-[#10B981]" : e === "visto" ? "bg-[#3B82F6]" : "bg-[#F97316]";
+  const statusLabel = (e: string) =>
+    e === "firmado" ? t("status.firmado") : e === "visto" ? t("status.visto") : t("status.pendiente");
+
+  async function doResend(e: SignerEntry) {
+    setBusyKey(e.key);
+    const res = e.kind === "firmante"
+      ? await resendFirmanteEmailAction(e.actionId, locale)
+      : await resendSigningEmailAction(e.actionId, locale);
+    setBusyKey(null);
+    if (res.error) toast.error(t("resend_error"));
+    else { toast.success(t("details.resent_one")); router.refresh(); }
+  }
+
+  async function doSaveResend(e: SignerEntry) {
+    const email = draft.trim().toLowerCase();
+    setBusyKey(e.key);
+    const upd = e.kind === "firmante"
+      ? await updateFirmanteEmailAction(e.actionId, email, locale)
+      : await updateDocumentEmailAction(e.actionId, email, locale);
+    if (upd.error) {
+      setBusyKey(null);
+      toast.error(upd.error === "email_invalid" ? t("details.email_invalid") : t("details.update_error"));
+      return;
+    }
+    // Email saved — resend to that signer with the corrected address
+    const res = e.kind === "firmante"
+      ? await resendFirmanteEmailAction(e.actionId, locale)
+      : await resendSigningEmailAction(e.actionId, locale);
+    setBusyKey(null);
+    setEditingKey(null);
+    toast.success(res.error ? t("details.email_updated") : t("details.email_resent"));
+    router.refresh();
+  }
+
+  async function copyLink(e: SignerEntry) {
+    try {
+      await navigator.clipboard.writeText(`${appUrl}/firmar/${e.token}`);
+      setCopiedKey(e.key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch { /* ignore */ }
+  }
+
+  const hasPending = entries.some(e => e.estado !== "firmado");
+
+  return (
+    <div className="bg-[#F8F9FA] rounded-[10px] border border-[#EEF0F2] p-3 space-y-2">
+      <p className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider">{t("details.title")}</p>
+      {entries.map(e => {
+        const signed    = e.estado === "firmado";
+        const isEditing = editingKey === e.key;
+        const busy      = busyKey === e.key;
+        return (
+          <div key={e.key} className="bg-white rounded-[9px] border border-[#E5E7EB] px-3 py-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(e.estado)}`} />
+                  <span className="text-[13px] font-medium text-[#111827] truncate">{e.nombre}</span>
+                  <span className="text-[10px] text-[#9CA3AF] whitespace-nowrap">· {statusLabel(e.estado)}</span>
+                </div>
+                {isEditing ? (
+                  <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="email"
+                      value={draft}
+                      onChange={ev => setDraft(ev.target.value)}
+                      autoFocus
+                      className="flex-1 px-2.5 py-1.5 text-[13px] border border-[#E5E7EB] rounded-lg bg-white text-[#111827] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => doSaveResend(e)}
+                        disabled={busy}
+                        className="text-[12px] font-semibold text-white bg-[#F97316] hover:bg-[#EA580C] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {busy ? t("resend_sending") : t("details.save_resend")}
+                      </button>
+                      <button
+                        onClick={() => setEditingKey(null)}
+                        disabled={busy}
+                        className="text-[12px] font-medium text-[#6B7280] hover:text-[#111827] px-2 py-1.5"
+                      >
+                        {t("cancel")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-[#6B7280] mt-0.5 pl-3 truncate" title={e.correo}>{e.correo}</p>
+                )}
+              </div>
+
+              {!isEditing && (
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {!signed && (
+                    <>
+                      <button
+                        onClick={() => { setEditingKey(e.key); setDraft(e.correo); }}
+                        className="text-[11px] font-medium text-[#6B7280] hover:text-[#1a3c5e] transition-colors"
+                      >
+                        {t("details.edit_email")}
+                      </button>
+                      <button
+                        onClick={() => doResend(e)}
+                        disabled={busy}
+                        className="text-[11px] font-medium text-[#6B7280] hover:text-[#1a3c5e] transition-colors disabled:opacity-50"
+                      >
+                        {busy ? t("resend_sending") : t("resend")}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => copyLink(e)}
+                    className={`text-[11px] font-medium transition-colors ${copiedKey === e.key ? "text-[#10B981]" : "text-[#6B7280] hover:text-[#1a3c5e]"}`}
+                  >
+                    {copiedKey === e.key ? t("copied") : t("copy_link")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {hasPending && (
+        <p className="text-[11px] text-[#9CA3AF] pl-1">{t("details.not_sent_hint")}</p>
+      )}
+    </div>
+  );
+}
+
 export default function DocumentosClient({ documents, locale, appUrl, page, totalPages, totalCount, statusCounts }: Props) {
   const t = useTranslations("documents");
   const tp = useTranslations("pagination");
@@ -84,6 +259,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
   const [copiedId, setCopied]   = useState<string | null>(null);
   const [hideId, setHideId]     = useState<string | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [isPending, startTransition]             = useTransition();
   const [isRefreshing, startRefreshTransition]   = useTransition();
   const [, startResendTransition]                = useTransition();
@@ -310,8 +486,10 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                   const isCopied = copiedId === doc.id;
                   const isHiding = hideId === doc.id;
                   const isResending = resendingId === doc.id;
+                  const isExpanded = expandedId === doc.id;
                   return (
-                    <tr key={doc.id} className="hover:bg-[#FAFAFA] transition-colors group">
+                    <Fragment key={doc.id}>
+                    <tr className="hover:bg-[#FAFAFA] transition-colors group">
 
                       {/* Document */}
                       <td className="px-5 py-3.5 max-w-[220px]">
@@ -348,6 +526,15 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                             <p className="text-xs text-[#9CA3AF]">{doc.correo_destinatario}</p>
                           </>
                         )}
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : doc.id)}
+                          className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-[#1a3c5e] hover:text-[#F97316] transition-colors"
+                        >
+                          {isExpanded ? t("details.hide") : t("details.show")}
+                          <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
                       </td>
 
                       {/* Status */}
@@ -479,6 +666,14 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                         )}
                       </td>
                     </tr>
+                    {isExpanded && (
+                      <tr className="bg-[#FAFAFA]">
+                        <td colSpan={6} className="px-5 pb-4 pt-1">
+                          <SignerDetailPanel doc={doc} locale={locale} appUrl={appUrl} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -494,6 +689,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
               const isCopied = copiedId === doc.id;
               const isHiding = hideId === doc.id;
               const isResending = resendingId === doc.id;
+              const isExpanded = expandedId === doc.id;
               return (
                 <div key={doc.id} className="p-4">
                   {/* Title + badge */}
@@ -536,7 +732,22 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                         <p className="text-xs text-[#9CA3AF]">{doc.correo_destinatario}</p>
                       </>
                     )}
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : doc.id)}
+                      className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-[#1a3c5e] hover:text-[#F97316] transition-colors"
+                    >
+                      {isExpanded ? t("details.hide") : t("details.show")}
+                      <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
                   </div>
+
+                  {isExpanded && (
+                    <div className="mt-3 pl-9">
+                      <SignerDetailPanel doc={doc} locale={locale} appUrl={appUrl} />
+                    </div>
+                  )}
 
                   {/* Footer */}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F3F4F6] pl-9">

@@ -24,6 +24,7 @@ Dominio: **firmiu.com** · Deploy: **Vercel** (pendiente) · Base de datos: **Su
 | i18n | next-intl v3 (ES por defecto sin prefijo; EN con `/en`) | ✅ |
 | Emails | Resend (`noreply@firmiu.com`) | ✅ requiere `RESEND_API_KEY` real |
 | Firma en PDF | pdf-lib | ✅ |
+| Preview de PDF (posicionar firmas) | **pdfjs-dist `4.7.76` (FIJADA — no subir a v5)** | ✅ ver sección "⚠️ PDF preview" |
 | Canvas de firma | react-signature-canvas | ✅ |
 | Toasts | Sistema propio por eventos (`toast.ts` + `Toaster.tsx`) | ✅ |
 | Pagos | Paddle (`@paddle/paddle-js`) | ✅ Checkout + webhook + cancelación implementados |
@@ -541,3 +542,27 @@ npm run lint     # ESLint
 - **Build**: `npm run build` debe pasar sin errores. Build actual genera 45 páginas.
 - **`NEXT_PUBLIC_APP_URL`**: usado en metadata SEO (canonical, OG, sitemap, links de email). En producción: `https://firmiu.com`.
 - **Business plan features próximamente**: "API pública + webhooks" y "Hasta 5 usuarios" están marcadas como "(Próximamente)" en `home.pricing.business.features` y `settings.business_f2/f4`. No implementar sin antes acordar el diseño.
+
+---
+
+## ⚠️ PDF preview (posicionador de firmas) — NO ROMPER
+
+El preview del PDF en `/dashboard/nuevo` (componente [`PdfPosicionador.tsx`](src/app/[locale]/dashboard/nuevo/PdfPosicionador.tsx)) usa **pdfjs-dist** para renderizar el PDF a un `<canvas>` y dejar posicionar el área de firma de cada firmante. Tuvo un historial largo de fallos en producción ("Vista previa no disponible"). Quedó estable con **dos arreglos que NO se deben revertir**:
+
+### 1. pdfjs-dist FIJADO en `4.7.76` — NUNCA subir a v5+
+- En `package.json` está como **versión exacta** `"pdfjs-dist": "4.7.76"` (sin `^`). **No poner caret ni actualizar a v5.**
+- **Por qué**: pdfjs-dist **v5** usa APIs de navegador muy nuevas **sin guard** — `Uint8Array.prototype.toHex()` (Chrome/Edge 140+, Safari 18.4+) y `Promise.try()`. En navegadores no-tan-nuevos (PC con Chrome desactualizado) revienta con `n.toHex is not a function` → preview roto. El móvil (Chrome reciente) funcionaba y el PC no: ese es el síntoma.
+- `4.7.76` es la v4 más alta que **no** usa `toHex`/`Promise.try`/`toBase64` nativos → compatible con navegadores antiguos. La API que usamos (`getDocument`, `getPage`, `getViewport`, `render`) es idéntica entre v4 y v5, así que no hay razón funcional para subir.
+- **Si algún día hay que cambiar la versión de pdfjs**: hay que **regenerar `public/pdf.worker.min.mjs`** desde el paquete instalado (`cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/`). La versión del worker en `public/` **debe coincidir exactamente** con la de `node_modules` o pdf.js falla con "API version does not match Worker version".
+
+### 2. Worker servido a pdf.js como `blob:` (no como path estático)
+- En `PdfPosicionador.tsx` el worker se carga así: `fetch("/pdf.worker.min.mjs")` → `URL.createObjectURL(new Blob([code], { type: "text/javascript" }))` → `GlobalWorkerOptions.workerSrc = blobUrl`.
+- **Por qué**: el header global `X-Content-Type-Options: nosniff` (en `next.config.js`) hace que el navegador **rechace** el `.mjs` como *module worker* si el host (Vercel) lo sirve con un Content-Type que no sea JS exacto. Eso rompe **a la vez** el worker real y el fallback "fake worker" (que importa el mismo `.mjs`). Envolver el worker en un blob con MIME `text/javascript` explícito pone el MIME nosotros y sortea el host. La CSP ya lo permite (`worker-src 'self' blob:`).
+- **No revertir** a `workerSrc = "/pdf.worker.min.mjs"` directo.
+
+### 3. Polyfill de `Promise.try` debe reenviar argumentos
+- El polyfill en `PdfPosicionador.tsx` **debe** reenviar args y convertir throws síncronos en rejects (`(fn, ...args) => new Promise((res,rej) => { try { res(fn(...args)) } catch(e){ rej(e) } })`). Un polyfill que ignore los args rompe pdf.js con `Cannot destructure property 'docId'`. Con v4.7.76 este polyfill es dead-code inofensivo, pero déjalo correcto por si se toca la versión.
+
+### Notas
+- `/api/pdf-worker/route.ts` es **código muerto y roto** (el middleware i18n lo intercepta → 404; no está en las exclusiones del matcher). No se usa. Borrar en una limpieza.
+- `public/pdf.worker.min.mjs` **está versionado en git** y debe desplegarse junto al `package.json`.
