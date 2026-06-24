@@ -17,8 +17,10 @@ export interface FirmanteLocal {
 }
 
 const SIGNER_COLORS = ["#1a3c5e", "#F97316", "#10B981", "#8B5CF6", "#EF4444"];
-const FIELD_W = 0.38;
-const FIELD_H = 0.10;
+// Signature-sized field (relative to page). Kept small so the signature sits
+// naturally on a signature line instead of a huge floating box.
+const FIELD_W = 0.30;
+const FIELD_H = 0.06;
 
 interface Props {
   file: File;

@@ -80,12 +80,16 @@ function truncate(str: string, max = 52): string {
 }
 
 // ── Place signature image on an existing page at relative coordinates ─────────
+// Draws ONLY the signature image (transparent PNG) — no colored box or tint — so
+// it looks like a real signature on the document, not a UI placeholder. The
+// per-signer colors live only in the positioning preview and the certificate.
+// The signature is scaled to fit the positioned field, keeping aspect ratio.
 function drawSignatureOnPage(
   page: PDFPage,
   pngImage: PDFImage,
-  opts: { campo_x: number; campo_y: number; campo_ancho: number; campo_alto: number; signerIndex: number }
+  opts: { campo_x: number; campo_y: number; campo_ancho: number; campo_alto: number }
 ): void {
-  const { campo_x, campo_y, campo_ancho, campo_alto, signerIndex } = opts;
+  const { campo_x, campo_y, campo_ancho, campo_alto } = opts;
   const { width: W, height: H } = page.getSize();
   const x = campo_x * W;
   const fieldH = campo_alto * H;
@@ -93,37 +97,18 @@ function drawSignatureOnPage(
   // pdf-lib Y origin is bottom-left; our coords are top-left
   const y = H - (campo_y + campo_alto) * H;
 
-  const borderColors = [
-    rgb(0.102, 0.235, 0.369), // #1a3c5e
-    rgb(0.976, 0.451, 0.086), // #F97316
-    rgb(0.063, 0.725, 0.506), // #10B981
-    rgb(0.545, 0.361, 0.976), // #8B5CF6
-    rgb(0.937, 0.267, 0.267), // #EF4444
-  ];
-  const borderColor = borderColors[signerIndex % borderColors.length];
-
-  // Background tint
-  page.drawRectangle({
-    x, y, width: fieldW, height: fieldH,
-    color: rgb(0.98, 0.98, 0.99),
-    borderColor,
-    borderWidth: 1.2,
-  });
-
-  // Scale signature image to fit the field (maintain aspect ratio)
-  const padX = 8, padY = 6;
-  const maxW = fieldW - padX * 2;
-  const maxH = fieldH - padY * 2;
+  const pad = 2;
+  const maxW = fieldW - pad * 2;
+  const maxH = fieldH - pad * 2;
   const scale = Math.min(maxW / pngImage.width, maxH / pngImage.height);
   const sigW = pngImage.width * scale;
   const sigH = pngImage.height * scale;
 
   page.drawImage(pngImage, {
-    x: x + padX + (maxW - sigW) / 2,
-    y: y + padY + (maxH - sigH) / 2,
+    x: x + (fieldW - sigW) / 2,
+    y: y + (fieldH - sigH) / 2,
     width: sigW,
     height: sigH,
-    opacity: 0.9,
   });
 }
 
@@ -536,7 +521,6 @@ async function signFirmante({
   const geo = await fetchGeoData(ip);
 
   const firmadoPath = `${doc.owner_id}/${doc.id}.pdf`;
-  const signerIndex = (firmante.orden ?? 1) - 1;
   const localeTz = geo?.timezone || timezone || null;
 
   try {
@@ -558,7 +542,6 @@ async function signFirmante({
       campo_y: firmante.campo_y,
       campo_ancho: firmante.campo_ancho,
       campo_alto: firmante.campo_alto,
-      signerIndex,
     });
 
     // 2. Are all OTHER signers already done? (this one isn't marked yet)
