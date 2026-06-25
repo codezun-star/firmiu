@@ -163,6 +163,9 @@
       "included_ip": "Registro de IP, dispositivo y ubicación",
       "included_datetime": "Fecha y hora certificada del firmante",
       "included_pdf": "PDF con auditoría descargable",
+      "included_multisigner": "Varios firmantes por documento (hasta 5)",
+      "included_upload": "Dibuja o sube una imagen de tu firma",
+      "included_certificate": "Certificado con sello de integridad (SHA-256)",
       "reminder_feature": "Recordatorios automáticos a 48h"
     },
     "faq": {

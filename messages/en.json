@@ -163,6 +163,9 @@
       "included_ip": "IP, device and location tracking",
       "included_datetime": "Certified date and time of signing",
       "included_pdf": "Downloadable audit PDF",
+      "included_multisigner": "Multiple signers per document (up to 5)",
+      "included_upload": "Draw or upload an image of your signature",
+      "included_certificate": "Certificate with integrity seal (SHA-256)",
       "reminder_feature": "Automatic 48h reminders"
     },
     "faq": {

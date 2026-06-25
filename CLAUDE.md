@@ -4,11 +4,13 @@
 
 SaaS de firma digital de documentos orientado a Latinoamérica. Dirigido a contadores, abogados, inmobiliarias y pequeños negocios que necesitan firmar PDFs sin impresoras ni escáneres.
 
-**Flujo principal:**
-1. El dueño sube un PDF y escribe el nombre + correo del destinatario
-2. El destinatario recibe un correo con un enlace único `/firmar/[token]`
-3. El destinatario dibuja su firma y escribe un código de verificación de 4 dígitos
-4. El PDF queda firmado (firma estampada con pdf-lib) y disponible para descargar
+**Flujo principal (multi-firmante):**
+1. El dueño sube un PDF y coloca **uno o varios firmantes** (hasta 5), posicionando el área de firma de cada uno sobre el documento (preview con pdf.js)
+2. Cada firmante recibe un correo con un enlace único `/firmar/[token]` (token propio por firmante)
+3. El firmante **dibuja su firma O sube una imagen** de su firma + escribe un código de verificación de 4 dígitos
+4. Su firma se estampa en la posición asignada (pdf-lib). Cuando **todos** firman, se agrega una página final de **Certificado de firma digital** (firmantes en orden + huella SHA-256 del documento + folio) y el PDF queda disponible para descargar con su título original
+
+> El flujo de **un solo firmante** original sigue vivo como *legacy* (tabla `firmas`, página de constancia individual) para documentos antiguos. Los documentos **nuevos** siempre usan la tabla `firmantes` (multi-firmante), incluso con un solo firmante.
 
 Dominio: **firmiu.com** · Deploy: **Vercel** (pendiente) · Base de datos: **Supabase**
 
@@ -83,8 +85,8 @@ firmiu/
 │   │   ├── robots.ts         # robots.txt (bloquea /dashboard/ y /firmar/)
 │   │   ├── actions/
 │   │   │   ├── auth.ts       # registerAction, loginAction, logoutAction, googleLoginAction, forgotPasswordAction, resetPasswordAction
-│   │   │   ├── documents.ts  # uploadDocumentAction (con límites de plan), hideDocumentAction
-│   │   │   ├── sign.ts       # signDocumentAction, downloadSignedPdfAction, hideSignatureAction
+│   │   │   ├── documents.ts  # uploadDocumentAction (legacy 1 firmante) + uploadDocumentMultiAction (multi-firmante con posición), resend/update por firmante, hideDocumentAction
+│   │   │   ├── sign.ts       # signDocumentAction (firmantes + legacy), drawSignatureOnPage, addCertificatePage, downloadSignedPdfAction, hideSignatureAction
 │   │   │   ├── contacts.ts   # addContactAction, deleteContactAction, hideContactAction
 │   │   │   └── settings.ts   # updateProfileAction, updatePasswordAction, deleteAccountAction, cancelSubscriptionAction
 │   │   ├── api/
@@ -163,7 +165,12 @@ firmiu/
 │       ├── 003_contacts.sql             # tabla contactos + RLS
 │       ├── 004_security.sql             # firmas: intentos_fallidos, bloqueado (brute-force)
 │       ├── 005_paddle.sql               # tabla suscripciones + RLS
-│       └── 006_soft_delete.sql          # oculto en documentos/firmas/contactos + índices
+│       ├── 006_soft_delete.sql          # oculto en documentos/firmas/contactos + índices
+│       ├── 007_recordatorios.sql        # cron de recordatorios automáticos (48h)
+│       ├── 008_firmantes.sql            # tabla firmantes (multi-firmante, hasta 5, posición + audit por firmante)
+│       ├── 009_webhook_logs.sql         # tabla webhook_logs (auditoría de eventos Paddle)
+│       ├── 010_atomic_counter.sql       # RPC increment_documentos_mes (contador atómico, sin lost-update)
+│       └── 011_firma_imagen.sql         # firmantes: firma_imagen + firma_timezone (para el certificado)
 ├── vercel.json                           # Cron job: reset-docs el día 1 de cada mes
 ├── next.config.js                        # Security headers (HSTS, CSP, X-Frame, etc.)
 ├── tailwind.config.ts
@@ -292,25 +299,46 @@ pending_plan.*           → loader de suscripción pendiente
 - `downloadSignedPdfAction`: UUID del token validado antes de consultar DB
 - Brute-force en firma: 5 intentos fallidos → `bloqueado = true` (migración 004); retorna `errorKey: "code_blocked"`
 - `hideDocumentAction` / `hideContactAction`: verifican `owner_id` del usuario autenticado
-- `hideSignatureAction`: verifica ownership via join firmas → documentos → owner_id
+- `hideSignatureAction`: maneja `firmantes` Y `firmas` (legacy); verifica ownership via join → documentos → owner_id
 - Email HTML: usa `escapeHtml()` en todos los datos del usuario
 
-### ✅ Upload de documentos (`/dashboard/nuevo`)
-1. Valida PDF + destinatario + límite de plan
+### ✅ Upload de documentos (`/dashboard/nuevo`) — flujo MULTI-FIRMANTE
+Wizard de 3 pasos (Documento → Posicionar → Firmantes). Usa `uploadDocumentMultiAction`:
+1. Valida PDF (incl. **magic bytes** `%PDF-`), 1–5 firmantes (nombre+correo+posición), límite de plan
 2. Sube a `pdfs-originales/{owner_id}/{docId}.pdf` con admin client
-3. Inserta en `documentos` con server client (RLS)
-4. Genera código 4 dígitos, inserta en `firmas` con admin client
-5. Envía email con Resend desde `noreply@firmiu.com` (falla silenciosamente)
-6. Incrementa `documentos_mes` en `suscripciones`
-7. Retorna `{ success: true }` → `SuccessModal` → `/dashboard/documentos`
+3. Inserta `documentos` (server, RLS) + N filas en `firmantes` (admin), cada una con su token, código y posición
+4. Envía N emails con Resend (uno por firmante, falla silenciosamente)
+5. Incrementa `documentos_mes` vía `rpc("increment_documentos_mes")` (atómico)
+6. Retorna `{ success: true }` → `SuccessModal` → `/dashboard/documentos`
 
-### ✅ Firma de documentos (`/firmar/[token]`)
-1. Valida UUID del token + código 4 dígitos + brute-force check
-2. IP capture + geolocalización (ip-api.com HTTP, timeout 3s, non-fatal)
-3. Descarga PDF original, agrega **página nueva** (mismas dimensiones que página 1) con firma + audit trail
-4. Sube PDF firmado a `pdfs-firmados`, actualiza `documentos` y `firmas`
-5. Enriches `firmas` con browser/OS parseados, geo, VPN detection (non-fatal, por si migración no está)
-6. Retorna `{ success: true, redirectTo }` → `SuccessModal` → `/firmar/exito?token=...`
+> `uploadDocumentAction` (legacy, 1 firmante, inserta en `firmas`) sigue existiendo pero el wizard nuevo siempre usa el flujo multi-firmante.
+
+### ✅ Firma de documentos (`/firmar/[token]`) — multi-firmante + legacy
+`signDocumentAction` busca el token primero en `firmantes` (flujo nuevo); si no, cae a `documentos`+`firmas` (legacy).
+1. Valida UUID del token + código 4 dígitos + brute-force check (5 intentos → `bloqueado`)
+2. El firmante **dibuja su firma O sube una imagen** (tabs "Dibujar / Subir imagen"). La imagen se procesa en cliente: escala + fondo blanco→transparente → PNG data URL
+3. IP capture + geolocalización (ip-api.com HTTP, timeout 3s, non-fatal)
+4. Descarga el PDF actual (firmado acumulado o el original) y **estampa la firma en la posición del firmante** (`drawSignatureOnPage`) — solo la imagen, SIN caja de color
+5. Guarda audit del firmante (incl. `firma_imagen` + `firma_timezone`)
+6. Cuando **TODOS** firman (`allSigned`): agrega UNA página de **Certificado** (`addCertificatePage`) con los firmantes en orden + mini-firma + datos + **huella SHA-256 del PDF original** + folio (= `documento.id`). Notifica al dueño por email
+7. `documento.estado` = `firmado` (todos) o `visto` (parcial). Retorna `{ success, redirectTo }` → `/firmar/exito?token=...`
+
+### ✅ Multi-firmante, certificado y subir firma (lo más nuevo)
+- **Subida multi-firmante** (`uploadDocumentMultiAction`): hasta 5 firmantes, cada uno con nombre, correo y **posición** del campo de firma elegida en el preview ([`PdfPosicionador.tsx`](src/app/[locale]/dashboard/nuevo/PdfPosicionador.tsx)). Crea N filas en `firmantes`, envía N emails.
+- **Certificado consolidado** (`addCertificatePage` en `sign.ts`): UNA página final, firmantes en **orden** (`orden`), tarjeta por firmante con mini-firma + nombre + correo + fecha/hora (en su zona horaria) + IP + dispositivo + ubicación, recuadro de **integridad** (SHA-256 + folio) y resumen "Completado el …". Nombres con `titleCase`. Reemplaza la antigua página-por-firmante. El **legacy** (`addSignaturePage`) sigue para docs de un solo firmante de la tabla `firmas`.
+- **Estampado limpio** (`drawSignatureOnPage`): solo la imagen de la firma, sin recuadro de color ni tinte. Tamaño de campo reducido (FIELD_W=0.30, FIELD_H=0.06) para que quepa sobre la línea. Los colores por firmante viven solo en el preview y en el certificado.
+- **Panel — detalle por firmante** ([`DocumentosClient.tsx`](src/app/[locale]/dashboard/documentos/DocumentosClient.tsx)): "Ver detalle del envío" despliega nombre + correo + estado de cada firmante, con **corregir correo** (`updateFirmanteEmailAction` → guarda y reenvía) y **reenviar** por firmante (`resendFirmanteEmailAction`). Equivalente legacy: `updateDocumentEmailAction` + `resendSigningEmailAction`.
+- **Descarga con nombre real**: las URLs firmadas usan `{ download: \`${safeFilename(titulo)}.pdf\` }` (helper en `lib/utils.ts`) — no el UUID.
+- **Dashboard / actividad**: el feed fusiona `firmantes` (firmado) + `firmas` (legacy), ordenado por fecha.
+
+### ✅ Robustez (fixes recientes)
+- **Contador de plan atómico**: `uploadDocument*Action` usa `admin.rpc("increment_documentos_mes", { p_sub_id })` (migración 010) en vez de read-then-write.
+- **Limpieza de storage**: `deleteAccountAction` borra los PDFs de `pdfs-originales` y `pdfs-firmados` del usuario antes de eliminarlo (el cascade de DB no toca Storage).
+- **Validación de PDF por magic bytes** (`%PDF-`) además de extensión/MIME, en ambas subidas.
+- **Reenvío resetea bloqueo** brute-force del firmante/firma.
+- **Webhook Paddle**: paginación al buscar usuario por email; logs sin PII; `mapStatus` falla cerrado en estados desconocidos.
+- **Audit trail / certificado bilingües** (ES/EN) según el locale del firmante.
+- **Emails**: helpers compartidos en `lib/email.ts` (`emailShell`, `codeBox`, `ctaButton`).
 
 ### ✅ Dashboard — módulos con datos reales
 **Todos los módulos del dashboard comparten:**
@@ -337,7 +365,8 @@ pending_plan.*           → loader de suscripción pendiente
 - `metadataBase`: `https://firmiu.com`
 - `FAQ.tsx`: `<details>/<summary>` — indexable sin JS
 
-### ✅ Estado de páginas — Build: 45 páginas, 0 errores
+### ✅ Estado de páginas — Build: 321 páginas, 0 errores
+(El salto de páginas viene del SEO programático: ~44 países + ~62 profesiones + ~34 artículos de blog × ES/EN. Ver `lib/countries.ts`, `lib/usecases.ts`, `lib/blog.ts`.)
 
 | Ruta | Estado |
 |---|---|
@@ -406,6 +435,44 @@ create table firmas (
   bloqueado            boolean not null default false
 );
 
+-- firmantes (migración 008 + 011) — modelo MULTI-FIRMANTE (reemplaza firmas para docs nuevos)
+-- Cada documento puede tener hasta 5 firmantes; cada uno con su token, posición y audit propio.
+create table firmantes (
+  id                   uuid primary key default gen_random_uuid(),
+  documento_id         uuid not null references documentos(id) on delete cascade,
+  nombre               text not null,
+  correo               text not null,
+  orden                integer not null default 1,             -- 1..5 (define el orden en el certificado)
+  token                uuid not null unique default gen_random_uuid(),  -- enlace público /firmar/[token]
+  codigo_verificacion  text,
+  estado               text not null default 'pendiente',      -- pendiente | visto | firmado
+  -- posición del campo de firma (coords relativas 0–1, origen top-left)
+  pagina               integer not null default 1,
+  campo_x              float not null default 0.05,
+  campo_y              float not null default 0.70,
+  campo_ancho          float not null default 0.40,
+  campo_alto           float not null default 0.12,
+  -- brute-force
+  intentos_fallidos    integer not null default 0,
+  bloqueado            boolean not null default false,
+  -- audit (se rellena al firmar)
+  firmado_en           timestamptz,
+  ip                   text,
+  user_agent           text,
+  navegador            text,
+  sistema_operativo    text,
+  ubicacion            text,
+  ubicacion_ciudad     text,
+  ubicacion_pais       text,
+  vpn_detectado        boolean default false,
+  -- migración 011 (para el certificado consolidado):
+  firma_imagen         text,        -- data URL PNG de la firma (miniatura del certificado)
+  firma_timezone       text,        -- zona horaria del firmante (para fechas del certificado)
+  oculto               boolean not null default false,
+  creado_en            timestamptz not null default now()
+);
+-- RLS: solo service role (admin client). El dueño consulta vía join documentos.owner_id.
+
 -- contactos (migración 003 + 006)
 create table contactos (
   id         uuid primary key default gen_random_uuid(),
@@ -440,9 +507,8 @@ create table suscripciones (
 );
 -- RLS: auth.uid() = owner_id (select only; webhook y acciones admin usan admin client)
 
--- webhook_logs (sin migración aún — tabla opcional)
+-- webhook_logs (migración 009) — auditoría de eventos Paddle
 -- El webhook intenta insertar aquí; falla silenciosamente si no existe.
--- Crear manualmente si se necesita auditar eventos de Paddle:
 create table if not exists webhook_logs (
   id          uuid primary key default gen_random_uuid(),
   evento      text,
@@ -461,7 +527,14 @@ create table if not exists webhook_logs (
 004_security.sql        → firmas: intentos_fallidos, bloqueado
 005_paddle.sql          → tabla suscripciones + RLS
 006_soft_delete.sql     → oculto en documentos/firmas/contactos + índices
+007_recordatorios.sql   → soporte de recordatorios automáticos (48h)
+008_firmantes.sql       → tabla firmantes (multi-firmante) — CRÍTICA para el flujo nuevo
+009_webhook_logs.sql    → tabla webhook_logs
+010_atomic_counter.sql  → RPC increment_documentos_mes (sin esto el contador de plan no sube)
+011_firma_imagen.sql    → firmantes: firma_imagen + firma_timezone (sin esto la firma multi-firmante FALLA)
 ```
+
+> ⚠️ **008, 010 y 011 son obligatorias** para el sistema actual. Si faltan: 008 → el flujo multi-firmante no existe; 010 → el contador de plan no incrementa (no-fatal); 011 → `signFirmante` falla de forma explícita (lo protegimos con un guard).
 
 **Buckets de Storage (crear en Supabase si no existen):**
 - `pdfs-originales` — privado, acceso solo via admin client
@@ -485,12 +558,11 @@ create table if not exists webhook_logs (
 - Configurar Paddle webhook URL: `https://firmiu.com/api/paddle/webhook`
 
 ### 3. Ejecutar migraciones en Supabase
-- Aplicar 001 → 006 en orden en el SQL Editor si no se han ejecutado
+- Aplicar **001 → 011** en orden en el SQL Editor si no se han ejecutado
+- **Críticas para el sistema actual**: 008 (firmantes), 010 (contador atómico), 011 (firma_imagen/timezone)
+- `webhook_logs` ya es migración formal (009), no tabla manual
 
-### 4. Tabla webhook_logs (opcional pero recomendado)
-- Crear la tabla manualmente en Supabase para auditar eventos de Paddle
-
-### 5. Business plan — funciones futuras (Próximamente en UI)
+### 4. Business plan — funciones futuras (Próximamente en UI)
 - **Multi-usuario (hasta 5)**: requiere modelo de equipos/invitaciones, roles, nueva tabla `team_members`
 - **API pública + webhooks**: requiere generación de API keys, rate limiting, endpoints públicos documentados
 
@@ -539,9 +611,17 @@ npm run lint     # ESLint
 - **deleteAccountAction**: usa `admin.auth.admin.deleteUser(user.id)` que hace cascade en toda la DB. El soft-delete previo de documentos es intencional (señala intención de preservar) pero el cascade los elimina igualmente.
 - **`DownloadSignedButton`**: requiere prop `loadingLabel` (obligatoria). Pasarla desde el componente padre usando `t("sign_success.download_loading")` o `t("already_signed_loading")` según contexto.
 - **SEO en páginas nuevas**: toda página pública debe tener `generateMetadata` con title, description, keywords (desde i18n), canonical, hreflang languages (es/en), OG, Twitter, robots.
-- **Build**: `npm run build` debe pasar sin errores. Build actual genera 45 páginas.
+- **Build**: `npm run build` debe pasar sin errores. Build actual genera 321 páginas.
 - **`NEXT_PUBLIC_APP_URL`**: usado en metadata SEO (canonical, OG, sitemap, links de email). En producción: `https://firmiu.com`.
 - **Business plan features próximamente**: "API pública + webhooks" y "Hasta 5 usuarios" están marcadas como "(Próximamente)" en `home.pricing.business.features` y `settings.business_f2/f4`. No implementar sin antes acordar el diseño.
+- **Multi-firmante vs legacy**: `signDocumentAction` resuelve el token contra `firmantes` primero y `documentos`/`firmas` después. Cualquier acción que toque firmas debe contemplar AMBAS tablas (ver `hideSignatureAction`, panel de detalle, feed de actividad del dashboard).
+- **Certificado**: se agrega **una sola vez**, cuando firma el último (`allSigned`). Construir la lista de firmantes con los `others` (BD) + el actual (en memoria) y ordenar por `orden`. La huella SHA-256 se calcula del **PDF original** (`pdfs-originales`), el folio es `documento.id`. No dibujar página de constancia por firmante en el flujo `firmantes`.
+- **`drawSignatureOnPage`**: en el documento va SOLO la imagen de la firma (transparente), sin caja ni borde de color. Los colores por firmante son solo del preview y del certificado. No reintroducir el `drawRectangle` de fondo.
+- **Subir firma**: el `signaturePng` que llega a `signDocumentAction` debe ser `data:image/png;base64,…` ≤ 2MB. La opción "Subir imagen" en `FirmarClient.tsx` ya normaliza a PNG (canvas) y hace fondo transparente; no romper ese pipeline.
+- **Contador de plan**: usar SIEMPRE `admin.rpc("increment_documentos_mes", …)` (migración 010). Nunca volver al patrón read-then-write.
+- **deleteAccountAction**: además del cascade de DB, borra los PDFs de Storage. Mantener esa limpieza (privacidad/GDPR).
+- **Migración 011 obligatoria**: `signFirmante` selecciona/escribe `firma_imagen` y `firma_timezone`. Si faltan, el guard `othersErr` aborta la firma. Aplicar 011 antes de desplegar.
+- **Concurrencia multi-firmante (pendiente)**: dos firmantes simultáneos descargan el mismo PDF base y suben al mismo path con `upsert:true` → puede perderse una firma. No resuelto; si se promueve multi-firmante en serio, añadir lock optimista por documento.
 
 ---
 
