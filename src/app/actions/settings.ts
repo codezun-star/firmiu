@@ -51,7 +51,7 @@ export async function deleteAccountAction(): Promise<DeleteAccountResult> {
         ? "https://api.paddle.com"
         : "https://sandbox-api.paddle.com";
       try {
-        await fetch(
+        const res = await fetch(
           `${paddleBase}/subscriptions/${sub.paddle_subscription_id}/cancel`,
           {
             method: "POST",
@@ -62,8 +62,22 @@ export async function deleteAccountAction(): Promise<DeleteAccountResult> {
             body: JSON.stringify({ effective_from: "immediately" }),
           }
         );
-      } catch {
-        // Non-fatal: continue with deletion
+        // fetch does NOT throw on 4xx/5xx — check explicitly. If the cancel
+        // fails, Paddle keeps billing a deleted account (chargeback risk), so
+        // make it loud for manual follow-up instead of swallowing it.
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          console.error(
+            "[deleteAccount] Paddle cancel FALLÓ — la suscripción podría seguir cobrando. sub:",
+            sub.paddle_subscription_id, "status:", res.status, body.slice(0, 300)
+          );
+        }
+      } catch (e) {
+        // Non-fatal: continue with deletion, but record it.
+        console.error(
+          "[deleteAccount] Paddle cancel error de red — la suscripción podría seguir cobrando. sub:",
+          sub.paddle_subscription_id, e
+        );
       }
     }
 

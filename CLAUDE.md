@@ -56,11 +56,14 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000  # usado en OAuth redirectTo
 # Paddle
 NEXT_PUBLIC_PADDLE_ENV=sandbox              # cambiar a 'production' en Vercel
 NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=...
-NEXT_PUBLIC_PADDLE_PRICE_STARTER=pri_01kq422bt1wz29n1q4vwn1p82m
-NEXT_PUBLIC_PADDLE_PRICE_PRO=pri_01kq426n7d2nb2yn1kahrjy99j
-NEXT_PUBLIC_PADDLE_PRICE_BUSINESS=pri_01kq42frwhz0kxg9mfs613zhq4
+# ⚠️ Price IDs: sandbox y producción tienen IDs DISTINTOS. El webhook
+# (api/paddle/webhook) los lee de estas MISMAS vars (buildPricePlan), así que
+# deben coincidir con los precios reales de tu cuenta Paddle del entorno activo.
+NEXT_PUBLIC_PADDLE_PRICE_STARTER=pri_...
+NEXT_PUBLIC_PADDLE_PRICE_PRO=pri_...
+NEXT_PUBLIC_PADDLE_PRICE_BUSINESS=pri_...
 PADDLE_API_KEY=...
-PADDLE_WEBHOOK_SECRET=...
+PADDLE_WEBHOOK_SECRET=...   # OBLIGATORIO en producción (el webhook rechaza si falta)
 
 # Cron
 CRON_SECRET=...   # Vercel lo inyecta automáticamente como Authorization: Bearer
@@ -263,13 +266,15 @@ pending_plan.*           → loader de suscripción pendiente
 
 ### ✅ Checkout / Pagos con Paddle
 - `paddle.ts`: lee `NEXT_PUBLIC_PADDLE_ENV` — `=== 'production'` activa producción, cualquier otro valor usa sandbox
-- Precio IDs configurados via `NEXT_PUBLIC_PADDLE_PRICE_*` en env vars
+- Precio IDs configurados via `NEXT_PUBLIC_PADDLE_PRICE_*` en env vars. El webhook
+  arma su mapeo price→plan desde esas MISMAS vars (`buildPricePlan`), NO hardcodea
+  IDs — antes los tenía hardcodeados y NO coincidían con el checkout, registrando
+  todo como "starter". Si un price ID no se reconoce, loguea un error.
 - Planes y límites mensuales (webhook los registra en tabla `suscripciones`):
   - Free (sin suscripción): 3 docs/mes
-  - Starter (`pri_01kq422bt1wz29n1q4vwn1p82m`): 30 docs/mes
-  - Pro (`pri_01kq426n7d2nb2yn1kahrjy99j`): 100 docs/mes
-  - Business (`pri_01kq42frwhz0kxg9mfs613zhq4`): ilimitado (999999)
-- Webhook verifica firma HMAC-SHA256 con `crypto.timingSafeEqual`
+  - Starter: 30 docs/mes · Pro: 100 docs/mes · Business: ilimitado (999999)
+- Webhook: verifica firma HMAC-SHA256 (`crypto.timingSafeEqual`). En producción
+  **falla cerrado** si falta `PADDLE_WEBHOOK_SECRET` (no procesa sin firma).
 - Intenta log en tabla `webhook_logs` (no-fatal si tabla no existe)
 - `PendingPlanChecker.tsx`: limpia cookie/localStorage si el plan ya está activo
 

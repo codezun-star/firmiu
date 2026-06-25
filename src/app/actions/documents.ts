@@ -70,11 +70,14 @@ export async function uploadDocumentAction(
 
   const { data: sub, error: subError } = await admin
     .from("suscripciones")
-    .select("id, documentos_mes, limite_documentos, estado")
+    .select("id, documentos_mes, limite_documentos, estado, periodo_fin")
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (!subError && (sub?.estado === "active" || sub?.estado === "canceling")) {
+  // A 'canceling' sub keeps paid access only until periodo_fin — guards revenue
+  // if Paddle's subscription.canceled webhook is ever missed at period end.
+  const cancelingValid = sub?.estado === "canceling" && (!sub.periodo_fin || new Date(sub.periodo_fin as string) > new Date());
+  if (!subError && sub && (sub.estado === "active" || cancelingValid)) {
     planLimit  = sub.limite_documentos;
     subId      = sub.id;
     subDocsMes = sub.documentos_mes ?? 0;
@@ -322,11 +325,14 @@ export async function uploadDocumentMultiAction(
 
   const { data: sub, error: subError } = await admin
     .from("suscripciones")
-    .select("id, documentos_mes, limite_documentos, estado")
+    .select("id, documentos_mes, limite_documentos, estado, periodo_fin")
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  if (!subError && (sub?.estado === "active" || sub?.estado === "canceling")) {
+  // A 'canceling' sub keeps paid access only until periodo_fin — guards revenue
+  // if Paddle's subscription.canceled webhook is ever missed at period end.
+  const cancelingValid = sub?.estado === "canceling" && (!sub.periodo_fin || new Date(sub.periodo_fin as string) > new Date());
+  if (!subError && sub && (sub.estado === "active" || cancelingValid)) {
     planLimit  = sub.limite_documentos;
     subId      = sub.id;
     subDocsMes = sub.documentos_mes ?? 0;

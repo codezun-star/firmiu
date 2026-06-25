@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Price ID → plan mapping
-const PRICE_PLAN: Record<string, { plan: string; limit: number }> = {
-  pri_01kq422bt1wz29n1q4vwn1p82m: { plan: "starter", limit: 30 },
-  pri_01kq426n7d2nb2yn1kahrjy99j: { plan: "pro", limit: 100 },
-  pri_01kq42frwhz0kxg9mfs613zhq4: { plan: "business", limit: 999999 },
-};
+// Price ID → plan mapping, built from the SAME env vars the checkout uses.
+// CRÍTICO: los price IDs de Paddle sandbox y producción son DISTINTOS. Si se
+// hardcodearan los de sandbox, en producción ningún pago coincidiría y todos
+// caerían al fallback (starter). Leerlos de env hace que funcione en ambos
+// entornos siempre que NEXT_PUBLIC_PADDLE_PRICE_* esté bien configurado.
+function buildPricePlan(): Record<string, { plan: string; limit: number }> {
+  const map: Record<string, { plan: string; limit: number }> = {};
+  const s = process.env.NEXT_PUBLIC_PADDLE_PRICE_STARTER;
+  const p = process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO;
+  const b = process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS;
+  if (s) map[s] = { plan: "starter", limit: 30 };
+  if (p) map[p] = { plan: "pro", limit: 100 };
+  if (b) map[b] = { plan: "business", limit: 999999 };
+  return map;
+}
+const PRICE_PLAN = buildPricePlan();
 
 function mapStatus(status: string): string {
   switch (status) {
@@ -77,11 +87,18 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("paddle-signature") ?? "";
   const secret = process.env.PADDLE_WEBHOOK_SECRET ?? "";
+  const isProd = process.env.NEXT_PUBLIC_PADDLE_ENV === "production";
 
   if (secret) {
     if (!verifySignature(rawBody, signature, secret)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
+  } else if (isProd) {
+    // Fail CLOSED in production: without a secret the signature can't be
+    // verified, so anyone could POST a fake subscription.created to grant
+    // themselves a paid plan for free. Never process unsigned webhooks live.
+    console.error("[paddle-webhook] PADDLE_WEBHOOK_SECRET no configurado en producción — rechazando webhook");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
 
   let payload: WebhookPayload;
@@ -101,6 +118,9 @@ export async function POST(request: NextRequest) {
 
   if (event_type === "subscription.created" || event_type === "subscription.activated") {
     const priceId  = data.items?.[0]?.price?.id ?? "";
+    if (!PRICE_PLAN[priceId]) {
+      console.error("[paddle-webhook] priceId NO reconocido — revisa NEXT_PUBLIC_PADDLE_PRICE_* en este entorno:", priceId);
+    }
     const planInfo = PRICE_PLAN[priceId] ?? { plan: "starter", limit: 30 };
 
     let ownerId = data.custom_data?.owner_id;
