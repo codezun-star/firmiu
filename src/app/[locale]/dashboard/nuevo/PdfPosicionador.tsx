@@ -29,6 +29,12 @@ interface Props {
   firmantes: FirmanteLocal[];
   activeSigner: number;
   onPlace: (signerIndex: number, pos: PosicionFirma) => void;
+  // Signer controls (rendered beside the preview)
+  onSelectSigner: (i: number) => void;
+  onAddSigner: () => void;
+  maxSigners: number;
+  signerFallback: (n: number) => string;
+  addSignerLabel: string;
   positionHint: string;
   positionActive: (n: number) => string;
   positionPlaced: (n: number) => string;
@@ -40,17 +46,25 @@ export default function PdfPosicionador({
   firmantes,
   activeSigner,
   onPlace,
+  onSelectSigner,
+  onAddSigner,
+  maxSigners,
+  signerFallback,
+  addSignerLabel,
   positionHint,
   positionActive,
   positionPlaced,
   positionNotPlaced,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const paneRef = useRef<HTMLDivElement>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [pdfFailed, setPdfFailed] = useState(false);
+  // Display size of the page (CSS px). Internal canvas resolution is this × DPR
+  // for a crisp render on high-DPI screens (fixes the blurry preview).
+  const [disp, setDisp] = useState<{ w: number; h: number } | null>(null);
   const pdfRef = useRef<{ getPage: (n: number) => Promise<unknown> } | null>(null);
 
   const renderPage = useCallback(async (pageNum: number) => {
@@ -61,16 +75,26 @@ export default function PdfPosicionador({
         getViewport: (o: { scale: number }) => { width: number; height: number };
         render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> };
       };
-      const container = containerRef.current;
-      const containerW = (container?.clientWidth ?? 0) || 640;
-      const unscaledVP = page.getViewport({ scale: 1 });
-      const scale = containerW / unscaledVP.width;
-      const viewport = page.getViewport({ scale });
+      const pane = paneRef.current;
+      const paneW = (pane?.clientWidth ?? 0) || 640;
+      const unscaled = page.getViewport({ scale: 1 });
+      const aspect = unscaled.height / unscaled.width;
+
+      // Fit the whole page within the pane width AND ~80% of the viewport height
+      // so the document is fully visible (intuitive positioning, no scrolling).
+      const maxH = Math.max(380, Math.round((typeof window !== "undefined" ? window.innerHeight : 900) * 0.8));
+      let displayW = paneW;
+      let displayH = displayW * aspect;
+      if (displayH > maxH) { displayH = maxH; displayW = displayH / aspect; }
+
+      const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2.5);
+      const viewport = page.getViewport({ scale: (displayW / unscaled.width) * dpr });
       const canvas = canvasRef.current;
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+      setDisp({ w: Math.round(displayW), h: Math.round(displayH) });
       await page.render({ canvasContext: ctx, viewport }).promise;
     } catch (err) {
       console.error("[PdfPosicionador] page render failed:", err);
@@ -81,8 +105,6 @@ export default function PdfPosicionador({
 
   useEffect(() => {
     let cancelled = false;
-    // Timeout de seguridad: si pdfjs se cuelga (ej. Promise.try falla en fake worker
-    // y el error queda en una cadena desconectada), activamos el fallback a los 10s.
     const fallbackTimer = setTimeout(() => {
       if (!cancelled) { setLoading(false); setPdfFailed(true); }
     }, 10000);
@@ -91,14 +113,10 @@ export default function PdfPosicionador({
       setLoading(true);
       setPdfFailed(false);
       try {
-        // Polyfill de Promise.try (ES2025) — pdfjs-dist v5 lo usa internamente.
-        // Sin esto, el fake worker lanza TypeError en un callback desconectado
-        // y getDocument().promise nunca resuelve ni rechaza → spinner infinito.
-        const PromiseAny = Promise as any; // polyfill: any necesario para asignar Promise.try
+        // Promise.try polyfill (pdfjs-dist v5). Must forward args + convert sync
+        // throws to rejections; dropping the args broke pdf.js ("docId").
+        const PromiseAny = Promise as any; // polyfill assignment needs any
         if (typeof PromiseAny["try"] !== "function") {
-          // Must forward arguments and convert sync throws to rejections, exactly
-          // like the native Promise.try. The previous version dropped the args,
-          // which made pdf.js fail with "Cannot destructure property 'docId'".
           PromiseAny["try"] = function <T>(
             fn: (...a: unknown[]) => T | PromiseLike<T>,
             ...args: unknown[]
@@ -111,14 +129,8 @@ export default function PdfPosicionador({
 
         const pdfjsLib = await import("pdfjs-dist");
 
-        // Hand pdf.js the worker as a blob: URL with an explicit JS MIME type.
-        // Reason: our global `X-Content-Type-Options: nosniff` header makes the
-        // browser refuse to load /pdf.worker.min.mjs as a module worker whenever
-        // the host (e.g. Vercel) serves it with a non-JS Content-Type. That
-        // failure also breaks pdf.js's main-thread fallback (it imports the same
-        // file), leaving the preview permanently unavailable. Blob-wrapping the
-        // worker sets the MIME ourselves and sidesteps the host entirely.
-        // CSP already allows this via `worker-src 'self' blob:`.
+        // Worker as a blob: URL with explicit JS MIME — sidesteps the global
+        // `X-Content-Type-Options: nosniff` header rejecting the module worker.
         let workerSrc = "/pdf.worker.min.mjs";
         try {
           const res = await fetch(workerSrc);
@@ -126,9 +138,7 @@ export default function PdfPosicionador({
             const code = await res.text();
             workerSrc = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
           }
-        } catch {
-          // Keep the path fallback; pdf.js will attempt to load it directly.
-        }
+        } catch { /* keep path fallback */ }
         pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
         const arrayBuffer = await file.arrayBuffer();
@@ -140,7 +150,6 @@ export default function PdfPosicionador({
         setCurrentPage(1);
         await renderPage(1);
       } catch (err) {
-        // Surface the real cause — the empty catch made worker failures invisible.
         console.error("[PdfPosicionador] PDF preview failed:", err);
         if (!cancelled) {
           clearTimeout(fallbackTimer);
@@ -159,37 +168,36 @@ export default function PdfPosicionador({
     if (pdfRef.current && !pdfFailed) renderPage(currentPage);
   }, [currentPage, renderPage, pdfFailed]);
 
-  function handleClick(e: React.MouseEvent<HTMLElement>) {
-    const el = e.currentTarget;
-    const rect = el.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+  // Re-render on container resize (window resize / layout changes) so the
+  // preview stays crisp and correctly sized.
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane || typeof ResizeObserver === "undefined") return;
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (pdfRef.current && !pdfFailed) renderPage(currentPage);
+      });
+    });
+    ro.observe(pane);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, [renderPage, currentPage, pdfFailed]);
+
+  function placeFromPoint(clientX: number, clientY: number, rect: DOMRect) {
     const w = rect.width;
     const h = rect.height;
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
     const fw = FIELD_W * w;
     const fh = FIELD_H * h;
-    const rawX = (clickX - fw / 2) / w;
-    const rawY = (clickY - fh / 2) / h;
-    const campo_x = Math.max(0, Math.min(1 - FIELD_W, rawX));
-    const campo_y = Math.max(0, Math.min(1 - FIELD_H, rawY));
+    const campo_x = Math.max(0, Math.min(1 - FIELD_W, (clickX - fw / 2) / w));
+    const campo_y = Math.max(0, Math.min(1 - FIELD_H, (clickY - fh / 2) / h));
     onPlace(activeSigner, { pagina: currentPage, campo_x, campo_y, campo_ancho: FIELD_W, campo_alto: FIELD_H });
   }
 
-  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const clickX = (e.clientX - rect.left) * scaleX;
-    const clickY = (e.clientY - rect.top) * scaleY;
-    const fw = FIELD_W * canvas.width;
-    const fh = FIELD_H * canvas.height;
-    const rawX = (clickX - fw / 2) / canvas.width;
-    const rawY = (clickY - fh / 2) / canvas.height;
-    const campo_x = Math.max(0, Math.min(1 - FIELD_W, rawX));
-    const campo_y = Math.max(0, Math.min(1 - FIELD_H, rawY));
-    onPlace(activeSigner, { pagina: currentPage, campo_x, campo_y, campo_ancho: FIELD_W, campo_alto: FIELD_H });
+  function handleClick(e: React.MouseEvent<HTMLElement>) {
+    placeFromPoint(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
   }
 
   function fieldStyle(pos: PosicionFirma, index: number) {
@@ -207,110 +215,134 @@ export default function PdfPosicionador({
 
   const activeColor = SIGNER_COLORS[activeSigner % SIGNER_COLORS.length];
 
+  const overlays = firmantes.map((f, i) => {
+    if (!f.posicion) return null;
+    const style = fieldStyle(f.posicion, i);
+    if (!style) return null;
+    return (
+      <div key={i} className="absolute border-2 rounded-[4px] flex items-center justify-center pointer-events-none"
+        style={{ ...style, background: `${style.borderColor}18` }}>
+        <span className="text-[11px] font-bold px-1" style={{ color: style.color }}>{i + 1}</span>
+      </div>
+    );
+  });
+
   return (
-    <div className="flex flex-col gap-3">
-      {/* Hint */}
-      <div
-        className="text-[13px] px-3 py-2 rounded-[9px] font-medium text-center"
-        style={{ background: `${activeColor}15`, color: activeColor, border: `1px solid ${activeColor}30` }}
-      >
-        {positionActive(activeSigner + 1)}
-      </div>
-
-      {/* Canvas PDF o fallback visual */}
-      <div ref={containerRef} className="relative w-full rounded-[9px] overflow-hidden border border-[#E5E7EB] bg-[#F8F9FA]">
-        {loading && !pdfFailed && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
-            <div className="w-6 h-6 border-2 border-[#1a3c5e] border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-
-        {pdfFailed ? (
-          /* Modo fallback: rectángulo visual clicable (sin PDF real) */
-          <div
-            className="relative w-full cursor-crosshair select-none"
-            style={{ aspectRatio: "1 / 1.414", background: "white" }} /* A4 ratio */
-            onClick={handleClick}
-          >
-            {/* Watermark visual */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10">
-              <svg className="w-16 h-16 text-[#1a3c5e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-[#1a3c5e] text-xs font-medium mt-2">Página {currentPage}</p>
+    <div className="flex flex-col lg:flex-row gap-4 items-start">
+      {/* ── PDF pane (large) ── */}
+      <div ref={paneRef} className="flex-1 min-w-0 w-full">
+        <div className="relative flex justify-center bg-[#F1F3F5] rounded-[10px] border border-[#E5E7EB] p-3 sm:p-4">
+          {loading && !pdfFailed && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 rounded-[10px]">
+              <div className="w-6 h-6 border-2 border-[#1a3c5e] border-t-transparent rounded-full animate-spin" />
             </div>
-            {/* Note sobre el modo fallback */}
-            <div className="absolute top-2 left-2 right-2 z-10">
-              <div className="bg-amber-50 border border-amber-200 rounded-[7px] px-2.5 py-1.5 text-[11px] text-amber-700 text-center">
-                Vista previa no disponible — haz clic para posicionar la firma
+          )}
+
+          {pdfFailed ? (
+            <div
+              className="relative cursor-crosshair select-none rounded-[4px] shadow-sm w-full max-w-[520px]"
+              style={{ aspectRatio: "1 / 1.414", background: "white" }}
+              onClick={handleClick}
+            >
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10">
+                <svg className="w-16 h-16 text-[#1a3c5e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-[#1a3c5e] text-xs font-medium mt-2">Página {currentPage}</p>
               </div>
+              <div className="absolute top-2 left-2 right-2 z-10">
+                <div className="bg-amber-50 border border-amber-200 rounded-[7px] px-2.5 py-1.5 text-[11px] text-amber-700 text-center">
+                  Vista previa no disponible — haz clic para posicionar la firma
+                </div>
+              </div>
+              {overlays}
             </div>
-            {/* Overlays de posiciones */}
-            {firmantes.map((f, i) => {
-              if (!f.posicion) return null;
-              const style = fieldStyle(f.posicion, i);
-              if (!style) return null;
-              return (
-                <div key={i} className="absolute border-2 rounded-[4px] flex items-center justify-center pointer-events-none"
-                  style={{ ...style, background: `${style.borderColor}18` }}>
-                  <span className="text-[11px] font-bold px-1" style={{ color: style.color }}>{i + 1}</span>
-                </div>
-              );
-            })}
+          ) : (
+            <div
+              className="relative shadow-sm rounded-[2px]"
+              style={disp ? { width: disp.w, height: disp.h } : { width: "100%", aspectRatio: "1 / 1.414" }}
+            >
+              <canvas
+                ref={canvasRef}
+                onClick={handleClick}
+                className="block cursor-crosshair rounded-[2px] bg-white"
+                style={disp ? { width: disp.w, height: disp.h } : { width: "100%", height: "100%" }}
+              />
+              {overlays}
+            </div>
+          )}
+        </div>
+
+        {/* Navegación de páginas */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <button type="button" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+              className="px-3 py-1 text-[13px] rounded-[9px] border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F3F4F6] transition-colors">←</button>
+            <span className="text-[13px] text-[#6B7280]">{currentPage} / {totalPages}</span>
+            <button type="button" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+              className="px-3 py-1 text-[13px] rounded-[9px] border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F3F4F6] transition-colors">→</button>
           </div>
-        ) : (
-          /* Canvas pdfjs */
-          <>
-            <canvas ref={canvasRef} className="w-full block cursor-crosshair" onClick={handleCanvasClick} />
-            {canvasRef.current && firmantes.map((f, i) => {
-              if (!f.posicion) return null;
-              const style = fieldStyle(f.posicion, i);
-              if (!style) return null;
-              return (
-                <div key={i} className="absolute border-2 rounded-[4px] flex items-center justify-center pointer-events-none"
-                  style={{ ...style, background: `${style.borderColor}18` }}>
-                  <span className="text-[11px] font-bold px-1" style={{ color: style.color }}>{i + 1}</span>
-                </div>
-              );
-            })}
-          </>
         )}
       </div>
 
-      {/* Navegación de páginas */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
-          <button type="button" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-            className="px-3 py-1 text-[13px] rounded-[9px] border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F3F4F6] transition-colors">←</button>
-          <span className="text-[13px] text-[#6B7280]">{currentPage} / {totalPages}</span>
-          <button type="button" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-            className="px-3 py-1 text-[13px] rounded-[9px] border border-[#E5E7EB] text-[#374151] disabled:opacity-40 hover:bg-[#F3F4F6] transition-colors">→</button>
+      {/* ── Controls pane ── */}
+      <div className="w-full lg:w-[280px] shrink-0 flex flex-col gap-3 lg:sticky lg:top-[68px]">
+        {/* Active hint */}
+        <div
+          className="text-[13px] px-3 py-2.5 rounded-[9px] font-medium text-center"
+          style={{ background: `${activeColor}15`, color: activeColor, border: `1px solid ${activeColor}30` }}
+        >
+          {positionActive(activeSigner + 1)}
         </div>
-      )}
 
-      {/* Estado por firmante */}
-      <div className="flex flex-col gap-1">
-        {firmantes.map((f, i) => {
-          const color = SIGNER_COLORS[i % SIGNER_COLORS.length];
-          const isActive = i === activeSigner;
-          return (
-            <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-[9px] text-[13px]"
-              style={{ background: isActive ? `${color}12` : "#F9FAFB", border: `1px solid ${isActive ? color + "40" : "#E5E7EB"}` }}>
-              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                style={{ background: color }}>{i + 1}</span>
-              <span className="font-medium text-[#374151] truncate flex-1">{f.nombre || `Firmante ${i + 1}`}</span>
-              {f.posicion ? (
-                <span className="text-[#10B981] text-[11px] font-medium shrink-0">✓ {positionPlaced(f.posicion.pagina)}</span>
-              ) : (
-                <span className="text-[#9CA3AF] text-[11px] shrink-0">{positionNotPlaced}</span>
-              )}
-            </div>
-          );
-        })}
+        {/* Signer tabs */}
+        <div className="flex flex-wrap gap-2">
+          {firmantes.map((f, i) => (
+            <button key={i} type="button"
+              onClick={() => onSelectSigner(i)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] text-xs font-semibold transition-all border"
+              style={{
+                background: activeSigner === i ? SIGNER_COLORS[i % SIGNER_COLORS.length] : "white",
+                color: activeSigner === i ? "white" : SIGNER_COLORS[i % SIGNER_COLORS.length],
+                borderColor: SIGNER_COLORS[i % SIGNER_COLORS.length],
+              }}
+            >
+              {i + 1}. {(f.nombre || signerFallback(i + 1)).slice(0, 14)}
+              {f.posicion && <span>✓</span>}
+            </button>
+          ))}
+          {firmantes.length < maxSigners && (
+            <button type="button" onClick={onAddSigner}
+              className="px-2.5 py-1.5 rounded-[9px] text-xs font-medium border border-dashed border-[#9CA3AF] text-[#6B7280] hover:border-[#1a3c5e] hover:text-[#1a3c5e] transition-colors">
+              + {addSignerLabel}
+            </button>
+          )}
+        </div>
+
+        {/* Status list */}
+        <div className="flex flex-col gap-1.5">
+          {firmantes.map((f, i) => {
+            const color = SIGNER_COLORS[i % SIGNER_COLORS.length];
+            const isActive = i === activeSigner;
+            return (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-[9px] text-[13px]"
+                style={{ background: isActive ? `${color}12` : "#F9FAFB", border: `1px solid ${isActive ? color + "40" : "#E5E7EB"}` }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
+                  style={{ background: color }}>{i + 1}</span>
+                <span className="font-medium text-[#374151] truncate flex-1">{f.nombre || signerFallback(i + 1)}</span>
+                {f.posicion ? (
+                  <span className="text-[#10B981] text-[11px] font-medium shrink-0">✓ {positionPlaced(f.posicion.pagina)}</span>
+                ) : (
+                  <span className="text-[#9CA3AF] text-[11px] shrink-0">{positionNotPlaced}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="text-[12px] text-[#9CA3AF] leading-relaxed">{positionHint}</p>
       </div>
-
-      <p className="text-[12px] text-[#9CA3AF] text-center">{positionHint}</p>
     </div>
   );
 }

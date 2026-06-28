@@ -146,18 +146,15 @@ export default async function NuevoPage({ params: { locale }, searchParams }: Nu
         </div>
       </div>
 
-      {/* ── Two-column layout ── */}
-      {/* max-w-6xl (no 4xl) para que el preview del PDF al posicionar firmas tenga
-          ancho cómodo en PC; en móvil sigue a una columna full-width. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start max-w-6xl mx-auto">
-        <NuevoForm
-          locale={locale}
-          defaultNombre={searchParams.nombre ?? ""}
-          defaultCorreo={searchParams.correo ?? ""}
-          maxBatch={maxBatch}
-        />
-        <WhatNextCard />
-      </div>
+      {/* NuevoForm controla su propio ancho por paso: el paso de posicionar usa
+          todo el ancho (preview grande) y los demás muestran la barra lateral. */}
+      <NuevoForm
+        locale={locale}
+        defaultNombre={searchParams.nombre ?? ""}
+        defaultCorreo={searchParams.correo ?? ""}
+        maxBatch={maxBatch}
+        whatNext={<WhatNextCard />}
+      />
     </div>
   );
 }
