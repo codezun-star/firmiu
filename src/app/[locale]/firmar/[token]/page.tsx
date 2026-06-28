@@ -97,47 +97,7 @@ export default async function FirmarPage({ params: { locale, token } }: FirmarPa
     );
   }
 
-  // Legacy flow: documentos.token
-  const { data: doc } = await admin
-    .from("documentos")
-    .select("id, owner_id, titulo, nombre_destinatario, estado, url_pdf_original")
-    .eq("token", token)
-    .single();
-
-  if (!doc) notFound();
-
-  let pdfUrl: string | null = null;
-  if (doc.url_pdf_original) {
-    const { data: urlData } = await admin.storage
-      .from("pdfs-originales")
-      .createSignedUrl(doc.url_pdf_original, 3600);
-    pdfUrl = urlData?.signedUrl ?? null;
-  }
-
-  let fechaFirma: string | null = null;
-  if (doc.estado === "firmado") {
-    const { data: firmaData } = await admin
-      .from("firmas")
-      .select("firmado_en")
-      .eq("documento_id", doc.id)
-      .single();
-    fechaFirma = firmaData?.firmado_en ?? null;
-  }
-
-  if (doc.estado === "pendiente") {
-    await admin.from("documentos").update({ estado: "visto" }).eq("id", doc.id);
-  }
-
-  return (
-    <FirmarClient
-      locale={locale}
-      token={token}
-      titulo={doc.titulo}
-      nombreDestinatario={doc.nombre_destinatario}
-      estado={doc.estado}
-      pdfUrl={pdfUrl}
-      fechaFirma={fechaFirma}
-      signatureField={null}
-    />
-  );
+  // El flujo legacy (documentos.token + tabla `firmas`) fue eliminado. Un token
+  // que no corresponde a un firmante es inválido.
+  notFound();
 }

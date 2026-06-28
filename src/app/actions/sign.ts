@@ -151,109 +151,6 @@ const AUDIT_LABELS = {
   },
 } as const;
 
-// ── Append audit trail page ──────────────────────────────────────────────────
-async function addSignaturePage(
-  pdfDoc: PDFDocument,
-  pngImage: PDFImage,
-  opts: {
-    nombre: string; correo: string; titulo: string;
-    ip: string | null; now: Date; geo: GeoData | null;
-    browser: string; os: string; timezone?: string | null; locale?: string;
-  }
-): Promise<void> {
-  const { nombre, correo, titulo, ip, now, geo, browser, os, timezone, locale } = opts;
-  const L = locale === "en" ? AUDIT_LABELS.en : AUDIT_LABELS.es;
-  const intlLocale = locale === "en" ? "en" : "es";
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  const tz = geo?.timezone || timezone || "UTC";
-  const tzShort = tz === "UTC" ? "UTC" : (tz.split("/").pop()?.replace(/_/g, " ") ?? tz);
-  const fecha = now.toLocaleDateString(intlLocale, { year: "numeric", month: "long", day: "numeric", timeZone: tz });
-  const hora = now.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: tz }) + ` (${tzShort})`;
-
-  const darkBlue = rgb(0.102, 0.235, 0.369);
-  const orange   = rgb(0.976, 0.451, 0.086);
-  const textGray = rgb(0.216, 0.255, 0.318);
-  const lineGray = rgb(0.85, 0.85, 0.85);
-
-  const origPages = pdfDoc.getPages();
-  const { width: origW, height: origH } = origPages.length > 0
-    ? origPages[0].getSize() : { width: 595, height: 842 };
-
-  const sigPage = pdfDoc.addPage([origW, origH]);
-  const pageW = origW;
-  const pageH = origH;
-  const margin = 50;
-  const contentW = pageW - margin * 2;
-  const centerX = pageW / 2;
-  const fromTop = (pt: number) => pageH - pt;
-
-  const titleText = L.title;
-  const titleSize = 14;
-  const titleW = bold.widthOfTextAtSize(titleText, titleSize);
-  sigPage.drawText(titleText, { x: centerX - titleW / 2, y: fromTop(54), size: titleSize, font: bold, color: darkBlue });
-
-  const subText = "firmiu.com";
-  const subSize = 9;
-  const subW = font.widthOfTextAtSize(subText, subSize);
-  sigPage.drawText(subText, { x: centerX - subW / 2, y: fromTop(72), size: subSize, font, color: darkBlue });
-
-  const boxX = margin;
-  const boxH = 130;
-  const boxW = contentW;
-  const boxY = fromTop(223);
-  sigPage.drawRectangle({ x: boxX, y: boxY, width: boxW, height: boxH, color: rgb(1, 1, 1), borderColor: orange, borderWidth: 1.5 });
-
-  const maxSigW = boxW - 40;
-  const maxSigH = boxH - 20;
-  const scale = Math.min(maxSigW / pngImage.width, maxSigH / pngImage.height);
-  const sigW = pngImage.width * scale;
-  const sigH = pngImage.height * scale;
-  sigPage.drawImage(pngImage, { x: boxX + (boxW - sigW) / 2, y: boxY + (boxH - sigH) / 2, width: sigW, height: sigH, opacity: 0.9 });
-
-  sigPage.drawLine({ start: { x: margin, y: fromTop(243) }, end: { x: margin + contentW, y: fromTop(243) }, thickness: 2, color: darkBlue });
-
-  const auditTitle = L.auditTitle;
-  const auditTitleW = bold.widthOfTextAtSize(auditTitle, 8);
-  sigPage.drawText(auditTitle, { x: centerX - auditTitleW / 2, y: fromTop(259), size: 8, font: bold, color: darkBlue });
-
-  sigPage.drawLine({ start: { x: margin, y: fromTop(269) }, end: { x: margin + contentW, y: fromTop(269) }, thickness: 0.4, color: lineGray });
-
-  type Row = [string, string];
-  const rows: Row[] = [
-    [L.firmante, truncate(nombre)],
-    [L.correo, truncate(correo)],
-    [L.fecha, fecha],
-    [L.hora, hora],
-    [L.ip, ip ?? L.noDisponible],
-    [L.dispositivo, truncate(`${os} - ${browser}`)],
-  ];
-  if (geo?.city) rows.push([L.ubicacion, [geo.city, geo.regionName, geo.country].filter(Boolean).join(", ")]);
-  if (geo?.proxy) rows.push([L.red, L.vpn]);
-  else if (geo?.hosting) rows.push([L.red, L.hosting]);
-  rows.push([L.documento, truncate(titulo)]);
-
-  const rowSize = 8.5;
-  const lineH = 12;
-  const labelX = margin + 5;
-  const valueX = margin + 95;
-  let y = fromTop(281);
-  for (const [label, value] of rows) {
-    sigPage.drawText(label, { x: labelX, y, size: rowSize, font: bold, color: textGray });
-    sigPage.drawText(value, { x: valueX, y, size: rowSize, font, color: textGray });
-    y -= lineH;
-  }
-
-  y -= 5;
-  sigPage.drawLine({ start: { x: margin, y }, end: { x: margin + contentW, y }, thickness: 0.4, color: lineGray });
-  y -= 12;
-  sigPage.drawText(
-    L.legal,
-    { x: labelX, y, size: 6.5, font, color: rgb(0.5, 0.5, 0.5) }
-  );
-}
-
 // ── Consolidated signature certificate (multi-signer) ────────────────────────
 // One page listing every signer IN ORDER with a signature thumbnail + audit
 // data. Replaces the per-signer audit page (which produced N pages in signing
@@ -457,8 +354,9 @@ export async function signDocumentAction({
     });
   }
 
-  // Legacy flow: look up documentos.token
-  return signLegacy({ token, signaturePng, code, locale, clientUA, timezone, admin, now });
+  // No firmante for this token. The legacy single-signer flow (tabla `firmas`)
+  // fue eliminado, así que un token desconocido es simplemente inválido.
+  return { errorKey: "not_found" };
 }
 
 interface FirmanteRow {
@@ -734,113 +632,6 @@ async function signFirmante({
   return { errorKey: null, success: true, redirectTo: `${getPrefix(locale)}/firmar/exito?token=${token}` };
 }
 
-// ── Legacy single-signer flow (documentos.token + firmas) ────────────────────
-async function signLegacy({
-  token, signaturePng, code, locale, clientUA, timezone, admin, now,
-}: {
-  token: string; signaturePng: string; code: string; locale: string;
-  clientUA: string | null; timezone: string | null;
-  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>; now: Date;
-}): Promise<SignResult> {
-  const { data: doc, error: docError } = await admin
-    .from("documentos")
-    .select("id, owner_id, titulo, nombre_destinatario, correo_destinatario, estado, url_pdf_original, creado_en")
-    .eq("token", token)
-    .single();
-
-  if (docError || !doc) return { errorKey: "not_found" };
-  if (doc.estado === "firmado") return { errorKey: "already_signed" };
-
-  const docCreatedAt = new Date(doc.creado_en as string);
-  if (now.getTime() - docCreatedAt.getTime() > TOKEN_TTL_MS)
-    return { errorKey: "not_found" };
-
-  const { data: firma } = await admin
-    .from("firmas")
-    .select("id, codigo_verificacion, intentos_fallidos, bloqueado")
-    .eq("documento_id", doc.id)
-    .single();
-
-  if (!firma) return { errorKey: "not_found" };
-  if (firma.bloqueado) return { errorKey: "code_blocked" };
-
-  if (firma.codigo_verificacion !== code) {
-    const intentos = (firma.intentos_fallidos ?? 0) + 1;
-    await admin.from("firmas").update({ intentos_fallidos: intentos, bloqueado: intentos >= 5 }).eq("id", firma.id);
-    return { errorKey: "invalid_code" };
-  }
-
-  const ip = getRequestIp();
-  const uaString = clientUA ?? headers().get("user-agent") ?? null;
-  const { browser, os } = parseUserAgent(uaString);
-  const geo = await fetchGeoData(ip);
-
-  const firmadoPath = `${doc.owner_id}/${doc.id}.pdf`;
-  try {
-    const { data: pdfBlob, error: dlErr } = await admin.storage.from("pdfs-originales").download(doc.url_pdf_original);
-    if (dlErr || !pdfBlob) return { errorKey: "sign_failed" };
-
-    const pdfDoc = await PDFDocument.load(await pdfBlob.arrayBuffer());
-    const pngBytes = Buffer.from(signaturePng.replace(/^data:image\/png;base64,/, ""), "base64");
-    const pngImage = await pdfDoc.embedPng(pngBytes);
-
-    await addSignaturePage(pdfDoc, pngImage, {
-      nombre: doc.nombre_destinatario, correo: doc.correo_destinatario,
-      titulo: doc.titulo, ip, now, geo, browser, os, timezone, locale,
-    });
-
-    const signedBytes = await pdfDoc.save();
-    const { error: uploadErr } = await admin.storage
-      .from("pdfs-firmados")
-      .upload(firmadoPath, signedBytes, { contentType: "application/pdf", upsert: true });
-    if (uploadErr) return { errorKey: "sign_failed" };
-
-    await admin.from("documentos").update({ estado: "firmado", url_pdf_firmado: firmadoPath }).eq("id", doc.id);
-    await admin.from("firmas").update({ verificado: true, firmado_en: now.toISOString(), ip, user_agent: uaString }).eq("id", firma.id);
-  } catch {
-    return { errorKey: "sign_failed" };
-  }
-
-  try {
-    const { data: ownerData } = await admin.auth.admin.getUserById(doc.owner_id);
-    if (ownerData?.user?.email) {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      const prefix = getPrefix(locale);
-      const tituloEscaped = escapeHtml(doc.titulo);
-      const firmante = escapeHtml(doc.nombre_destinatario);
-      await resend.emails.send({
-        from: "Firmiu <noreply@firmiu.com>",
-        to: ownerData.user.email,
-        subject: `Tu documento "${tituloEscaped}" fue firmado`,
-        html: emailShell(`
-          <div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:16px;margin:0 0 24px">
-            <span style="color:#10b981;font-weight:600;font-size:15px">✓ Documento firmado exitosamente</span>
-          </div>
-          <p style="color:#374151;margin:0 0 16px;line-height:1.6">
-            <strong>${firmante}</strong> firmó el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong>.
-          </p>
-          ${ctaButtonNavy(`${appUrl}${prefix}/dashboard/documentos`, "Ver en el panel →")}
-          <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
-            Firmiu — firmiu.com
-          </p>
-        `),
-      });
-    }
-  } catch { /* non-fatal */ }
-
-  try {
-    await admin.from("firmas").update({
-      navegador: browser, sistema_operativo: os,
-      ubicacion: geo ? `${geo.city}, ${geo.country}` : null,
-      vpn_detectado: geo ? geo.proxy || geo.hosting : false,
-      ubicacion_ciudad: geo?.city ?? null, ubicacion_pais: geo?.country ?? null,
-    }).eq("id", firma.id);
-  } catch { /* migration may not be applied */ }
-
-  return { errorKey: null, success: true, redirectTo: `${getPrefix(locale)}/firmar/exito?token=${token}` };
-}
-
 // ── downloadSignedPdfAction ──────────────────────────────────────────────────
 // Handles both firmantes.token and documentos.token
 
@@ -890,8 +681,7 @@ export async function downloadSignedPdfAction(token: string): Promise<DownloadRe
   return { url: urlData.signedUrl, errorKey: null };
 }
 
-// ── hideSignatureAction ──────────────────────────────────────────────────────
-// Handles both firmantes.id and firmas.id (legacy)
+// ── hideSignatureAction (firmantes) ──────────────────────────────────────────
 
 export async function hideSignatureAction(
   id: string,
@@ -904,41 +694,24 @@ export async function hideSignatureAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "generic" };
 
-  // Try firmantes first
   const { data: firmante } = await admin
     .from("firmantes")
     .select("documento_id")
     .eq("id", id)
     .maybeSingle();
+  if (!firmante) return { error: "generic" };
 
-  if (firmante) {
-    const { data: doc } = await supabase
-      .from("documentos")
-      .select("id")
-      .eq("id", firmante.documento_id)
-      .eq("owner_id", user.id)
-      .single();
-    if (!doc) return { error: "generic" };
-    const { error } = await admin.from("firmantes").update({ oculto: true }).eq("id", id);
-    if (error) return { error: "generic" };
-  } else {
-    // Legacy: firmas
-    const { data: firma } = await admin
-      .from("firmas")
-      .select("documento_id")
-      .eq("id", id)
-      .single();
-    if (!firma) return { error: "generic" };
-    const { data: doc } = await supabase
-      .from("documentos")
-      .select("id")
-      .eq("id", firma.documento_id)
-      .eq("owner_id", user.id)
-      .single();
-    if (!doc) return { error: "generic" };
-    const { error } = await admin.from("firmas").update({ oculto: true }).eq("id", id);
-    if (error) return { error: "generic" };
-  }
+  // Ownership: el documento debe ser del usuario autenticado
+  const { data: doc } = await supabase
+    .from("documentos")
+    .select("id")
+    .eq("id", firmante.documento_id)
+    .eq("owner_id", user.id)
+    .single();
+  if (!doc) return { error: "generic" };
+
+  const { error } = await admin.from("firmantes").update({ oculto: true }).eq("id", id);
+  if (error) return { error: "generic" };
 
   const prefix = getPrefix(locale);
   revalidatePath(`${prefix}/dashboard/firmas`);

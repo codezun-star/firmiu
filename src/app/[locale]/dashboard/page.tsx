@@ -71,27 +71,15 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
   let activityItems: { docTitulo: string; signer: string; firmado_en: string }[] = [];
 
   if (docIds.length > 0) {
-    // Pull signatures from BOTH the new multi-signer table (firmantes) and the
-    // legacy single-signer table (firmas), then merge by date. Without firmantes
-    // the activity feed looked empty for anyone using the multi-signer flow.
-    const [firmantesRes, firmasRes] = await Promise.all([
-      admin
-        .from("firmantes")
-        .select("firmado_en, documento_id, nombre")
-        .eq("estado", "firmado")
-        .in("documento_id", docIds)
-        .order("firmado_en", { ascending: false })
-        .limit(10),
-      admin
-        .from("firmas")
-        .select("firmado_en, documento_id")
-        .eq("verificado", true)
-        .in("documento_id", docIds)
-        .order("firmado_en", { ascending: false })
-        .limit(10),
-    ]);
+    const { data: firmantesData } = await admin
+      .from("firmantes")
+      .select("firmado_en, documento_id, nombre")
+      .eq("estado", "firmado")
+      .in("documento_id", docIds)
+      .order("firmado_en", { ascending: false })
+      .limit(10);
 
-    const fromFirmantes = (firmantesRes.data ?? [])
+    activityItems = (firmantesData ?? [])
       .filter(f => f.firmado_en)
       .map(f => {
         const doc = docs.find(d => d.id === f.documento_id);
@@ -100,20 +88,7 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
           signer: (f.nombre as string) ?? "—",
           firmado_en: f.firmado_en as string,
         };
-      });
-
-    const fromFirmas = (firmasRes.data ?? [])
-      .filter(f => f.firmado_en)
-      .map(f => {
-        const doc = docs.find(d => d.id === f.documento_id);
-        return {
-          docTitulo: doc?.titulo ?? "—",
-          signer: doc?.nombre_destinatario ?? "—",
-          firmado_en: f.firmado_en as string,
-        };
-      });
-
-    activityItems = [...fromFirmantes, ...fromFirmas]
+      })
       .sort((a, b) => new Date(b.firmado_en).getTime() - new Date(a.firmado_en).getTime())
       .slice(0, 5);
   }

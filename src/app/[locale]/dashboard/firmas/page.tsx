@@ -51,8 +51,9 @@ export default async function FirmasPage({ params: { locale }, searchParams }: F
   let totalCount = 0;
 
   if (docIds.length > 0) {
-    // Query firmantes (new multi-signer flow) — estado = firmado
-    const { data: firmanteData, count: firmanteCount } = await admin
+    // Signatures come from the firmantes table (multi-signer flow). The legacy
+    // `firmas` table was removed.
+    const { data: firmanteData, count } = await admin
       .from("firmantes")
       .select("id, documento_id, nombre, correo, firmado_en, ip, navegador, sistema_operativo, ubicacion", { count: "exact" })
       .eq("estado", "firmado")
@@ -61,58 +62,21 @@ export default async function FirmasPage({ params: { locale }, searchParams }: F
       .order("firmado_en", { ascending: false })
       .range(from, to);
 
-    // Query legacy firmas as well (single-signer flow)
-    // Only query if page could still have legacy entries (rough heuristic: always query)
-    const { data: legacyData, count: legacyCount } = await admin
-      .from("firmas")
-      .select("id, documento_id, firmado_en, ip, navegador, sistema_operativo, ubicacion", { count: "exact" })
-      .eq("verificado", true)
-      .eq("oculto", false)
-      .in("documento_id", docIds)
-      .order("firmado_en", { ascending: false })
-      .range(from, to);
-
-    // Combine and de-duplicate by documento_id (prefer firmantes over legacy firmas for same doc)
-    const firmanteDocIds = new Set((firmanteData ?? []).map(f => f.documento_id));
-
-    const combined: FirmaWithDoc[] = [
-      ...(firmanteData ?? []).map(f => {
-        const doc = docMap.get(f.documento_id);
-        return {
-          id: f.id,
-          firmado_en: f.firmado_en ?? "",
-          ip: f.ip,
-          navegador: f.navegador,
-          sistema_operativo: f.sistema_operativo,
-          ubicacion: f.ubicacion,
-          docTitulo: doc?.titulo ?? "—",
-          docNombre: f.nombre,
-          docCorreo: f.correo,
-        };
-      }),
-      ...(legacyData ?? [])
-        .filter(f => !firmanteDocIds.has(f.documento_id))
-        .map(f => {
-          const doc = docMap.get(f.documento_id);
-          return {
-            id: f.id,
-            firmado_en: f.firmado_en,
-            ip: f.ip,
-            navegador: f.navegador,
-            sistema_operativo: f.sistema_operativo,
-            ubicacion: f.ubicacion,
-            docTitulo: doc?.titulo ?? "—",
-            docNombre: doc?.nombre_destinatario ?? "—",
-            docCorreo: doc?.correo_destinatario ?? "",
-          };
-        }),
-    ];
-
-    // Sort combined by firmado_en desc
-    combined.sort((a, b) => new Date(b.firmado_en).getTime() - new Date(a.firmado_en).getTime());
-    firmas = combined.slice(0, PAGE_SIZE);
-    totalCount = (firmanteCount ?? 0) + ((legacyCount ?? 0) - (firmanteData ?? []).filter(f => !firmanteDocIds.has(f.documento_id)).length);
-    totalCount = Math.max(totalCount, combined.length);
+    firmas = (firmanteData ?? []).map(f => {
+      const doc = docMap.get(f.documento_id);
+      return {
+        id: f.id,
+        firmado_en: f.firmado_en ?? "",
+        ip: f.ip,
+        navegador: f.navegador,
+        sistema_operativo: f.sistema_operativo,
+        ubicacion: f.ubicacion,
+        docTitulo: doc?.titulo ?? "—",
+        docNombre: f.nombre,
+        docCorreo: f.correo,
+      };
+    });
+    totalCount = count ?? 0;
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));

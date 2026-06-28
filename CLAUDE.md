@@ -10,7 +10,7 @@ SaaS de firma digital de documentos orientado a Latinoamérica. Dirigido a conta
 3. El firmante **dibuja su firma O sube una imagen** de su firma + escribe un código de verificación de 4 dígitos
 4. Su firma se estampa en la posición asignada (pdf-lib). Cuando **todos** firman, se agrega una página final de **Certificado de firma digital** (firmantes en orden + huella SHA-256 del documento + folio) y el PDF queda disponible para descargar con su título original
 
-> El flujo de **un solo firmante** original sigue vivo como *legacy* (tabla `firmas`, página de constancia individual) para documentos antiguos. Los documentos **nuevos** siempre usan la tabla `firmantes` (multi-firmante), incluso con un solo firmante.
+> Todos los documentos usan la tabla `firmantes` (multi-firmante), incluso con un solo firmante. El flujo legacy de un solo firmante (tabla `firmas`) **fue eliminado** (migración 013): se borró la tabla y todo su código (`signLegacy`, `uploadDocumentAction`, `resendSigningEmailAction`, `updateDocumentEmailAction`, `addSignaturePage`).
 
 Dominio: **firmiu.com** · Deploy: **Vercel** (pendiente) · Base de datos: **Supabase**
 
@@ -93,8 +93,8 @@ firmiu/
 │   │   ├── robots.ts         # robots.txt (bloquea /dashboard/ y /firmar/)
 │   │   ├── actions/
 │   │   │   ├── auth.ts       # registerAction, loginAction, logoutAction, googleLoginAction, forgotPasswordAction, resetPasswordAction
-│   │   │   ├── documents.ts  # uploadDocumentAction (legacy 1 firmante) + uploadDocumentMultiAction (1 doc, multi-firmante) + uploadDocumentsBatchAction (VARIOS docs por carga, cada uno con sus firmantes; gate por BATCH_LIMITS y cupo mensual), resend/update por firmante, hideDocumentAction
-│   │   │   ├── sign.ts       # signDocumentAction (firmantes + legacy), drawSignatureOnPage, addCertificatePage, downloadSignedPdfAction, hideSignatureAction
+│   │   │   ├── documents.ts  # uploadDocumentMultiAction (1 doc, multi-firmante) + uploadDocumentsBatchAction (VARIOS docs por carga, cada uno con sus firmantes; gate por BATCH_LIMITS y cupo mensual), resend/update por firmante, hideDocumentAction
+│   │   │   ├── sign.ts       # signDocumentAction (solo firmantes), drawSignatureOnPage, addCertificatePage, downloadSignedPdfAction, hideSignatureAction
 │   │   │   ├── contacts.ts   # addContactAction, deleteContactAction, hideContactAction
 │   │   │   └── settings.ts   # updateProfileAction, updatePasswordAction, deleteAccountAction, cancelSubscriptionAction
 │   │   ├── api/
@@ -179,7 +179,8 @@ firmiu/
 │       ├── 009_webhook_logs.sql         # tabla webhook_logs (auditoría de eventos Paddle)
 │       ├── 010_atomic_counter.sql       # RPC increment_documentos_mes (contador atómico, sin lost-update)
 │       ├── 011_firma_imagen.sql         # firmantes: firma_imagen + firma_timezone (para el certificado)
-│       └── 012_orden_firma.sql          # documentos: modo_firma ('paralelo' | 'secuencial')
+│       ├── 012_orden_firma.sql          # documentos: modo_firma ('paralelo' | 'secuencial')
+│       └── 013_drop_firmas.sql          # DROP TABLE firmas (legacy single-signer eliminado)
 ├── vercel.json                           # Cron job: reset-docs el día 1 de cada mes
 ├── next.config.js                        # Security headers (HSTS, CSP, X-Frame, etc.)
 ├── tailwind.config.ts
@@ -310,7 +311,7 @@ pending_plan.*           → loader de suscripción pendiente
 - `downloadSignedPdfAction`: UUID del token validado antes de consultar DB
 - Brute-force en firma: 5 intentos fallidos → `bloqueado = true` (migración 004); retorna `errorKey: "code_blocked"`
 - `hideDocumentAction` / `hideContactAction`: verifican `owner_id` del usuario autenticado
-- `hideSignatureAction`: maneja `firmantes` Y `firmas` (legacy); verifica ownership via join → documentos → owner_id
+- `hideSignatureAction`: opera sobre `firmantes`; verifica ownership via join → documentos → owner_id
 - Email HTML: usa `escapeHtml()` en todos los datos del usuario
 
 ### ✅ Upload de documentos (`/dashboard/nuevo`) — flujo MULTI-FIRMANTE
@@ -322,10 +323,10 @@ Wizard de 3 pasos (Documento → Posicionar → Firmantes). Usa `uploadDocumentM
 5. Incrementa `documentos_mes` vía `rpc("increment_documentos_mes")` (atómico)
 6. Retorna `{ success: true }` → `SuccessModal` → `/dashboard/documentos`
 
-> `uploadDocumentAction` (legacy, 1 firmante, inserta en `firmas`) sigue existiendo pero el wizard nuevo siempre usa el flujo multi-firmante.
+> El flujo legacy de 1 firmante (`uploadDocumentAction` + tabla `firmas`) fue **eliminado**. El wizard siempre usa el flujo multi-firmante.
 
-### ✅ Firma de documentos (`/firmar/[token]`) — multi-firmante + legacy
-`signDocumentAction` busca el token primero en `firmantes` (flujo nuevo); si no, cae a `documentos`+`firmas` (legacy).
+### ✅ Firma de documentos (`/firmar/[token]`) — multi-firmante
+`signDocumentAction` busca el token en `firmantes`; si no existe, devuelve `not_found` (sin fallback legacy).
 1. Valida UUID del token + código 4 dígitos + brute-force check (5 intentos → `bloqueado`)
 2. El firmante **dibuja su firma O sube una imagen** (tabs "Dibujar / Subir imagen"). La imagen se procesa en cliente: escala + fondo blanco→transparente → PNG data URL
 3. IP capture + geolocalización (ip-api.com HTTP, timeout 3s, non-fatal)
@@ -336,11 +337,11 @@ Wizard de 3 pasos (Documento → Posicionar → Firmantes). Usa `uploadDocumentM
 
 ### ✅ Multi-firmante, certificado y subir firma (lo más nuevo)
 - **Subida multi-firmante** (`uploadDocumentMultiAction`): hasta 5 firmantes, cada uno con nombre, correo y **posición** del campo de firma elegida en el preview ([`PdfPosicionador.tsx`](src/app/[locale]/dashboard/nuevo/PdfPosicionador.tsx)). Crea N filas en `firmantes`, envía N emails.
-- **Certificado consolidado** (`addCertificatePage` en `sign.ts`): UNA página final, firmantes en **orden** (`orden`), tarjeta por firmante con mini-firma + nombre + correo + fecha/hora (en su zona horaria) + IP + dispositivo + ubicación, recuadro de **integridad** (SHA-256 + folio) y resumen "Completado el …". Nombres con `titleCase`. Reemplaza la antigua página-por-firmante. El **legacy** (`addSignaturePage`) sigue para docs de un solo firmante de la tabla `firmas`.
+- **Certificado consolidado** (`addCertificatePage` en `sign.ts`): UNA página final, firmantes en **orden** (`orden`), tarjeta por firmante con mini-firma + nombre + correo + fecha/hora (en su zona horaria) + IP + dispositivo + ubicación, recuadro de **integridad** (SHA-256 + folio) y resumen "Completado el …". Nombres con `titleCase`. Es la única página de constancia (la antigua `addSignaturePage` legacy fue eliminada).
 - **Estampado limpio** (`drawSignatureOnPage`): solo la imagen de la firma, sin recuadro de color ni tinte. Tamaño de campo reducido (FIELD_W=0.30, FIELD_H=0.06) para que quepa sobre la línea. Los colores por firmante viven solo en el preview y en el certificado.
-- **Panel — detalle por firmante** ([`DocumentosClient.tsx`](src/app/[locale]/dashboard/documentos/DocumentosClient.tsx)): "Ver detalle del envío" despliega nombre + correo + estado de cada firmante, con **corregir correo** (`updateFirmanteEmailAction` → guarda y reenvía) y **reenviar** por firmante (`resendFirmanteEmailAction`). Equivalente legacy: `updateDocumentEmailAction` + `resendSigningEmailAction`.
+- **Panel — detalle por firmante** ([`DocumentosClient.tsx`](src/app/[locale]/dashboard/documentos/DocumentosClient.tsx)): "Ver detalle del envío" despliega nombre + correo + estado de cada firmante, con **corregir correo** (`updateFirmanteEmailAction` → guarda y reenvía) y **reenviar** por firmante (`resendFirmanteEmailAction`).
 - **Descarga con nombre real**: las URLs firmadas usan `{ download: \`${safeFilename(titulo)}.pdf\` }` (helper en `lib/utils.ts`) — no el UUID.
-- **Dashboard / actividad**: el feed fusiona `firmantes` (firmado) + `firmas` (legacy), ordenado por fecha.
+- **Dashboard / actividad**: el feed lee `firmantes` (estado firmado), ordenado por fecha.
 
 ### ✅ Robustez (fixes recientes)
 - **Contador de plan atómico**: `uploadDocument*Action` usa `admin.rpc("increment_documentos_mes", { p_sub_id })` (migración 010) en vez de read-then-write.
@@ -424,27 +425,8 @@ create table documentos (
   creado_en            timestamptz not null default now()
 );
 
--- firmas (migraciones 001 + 002 + 004 + 006)
-create table firmas (
-  id                   uuid primary key default gen_random_uuid(),
-  documento_id         uuid not null references documentos(id) on delete cascade,
-  firmado_en           timestamptz not null default now(),
-  ip                   text,
-  user_agent           text,
-  navegador            text,
-  sistema_operativo    text,
-  ubicacion            text,
-  codigo_verificacion  text,
-  verificado           boolean not null default false,
-  oculto               boolean not null default false,
-  -- migración 002:
-  vpn_detectado        boolean default false,
-  ubicacion_ciudad     text,
-  ubicacion_pais       text,
-  -- migración 004 (brute-force):
-  intentos_fallidos    integer not null default 0,
-  bloqueado            boolean not null default false
-);
+-- firmas (legacy single-signer) — ELIMINADA en la migración 013 (drop table).
+-- Todo el flujo de firma usa ahora `firmantes` (abajo). No recrear esta tabla.
 
 -- firmantes (migración 008 + 011) — modelo MULTI-FIRMANTE (reemplaza firmas para docs nuevos)
 -- Cada documento puede tener hasta 5 firmantes; cada uno con su token, posición y audit propio.
@@ -544,6 +526,7 @@ create table if not exists webhook_logs (
 010_atomic_counter.sql  → RPC increment_documentos_mes (sin esto el contador de plan no sube)
 011_firma_imagen.sql    → firmantes: firma_imagen + firma_timezone (sin esto la firma multi-firmante FALLA)
 012_orden_firma.sql     → documentos: modo_firma (orden secuencial/paralelo; sin esto todo es 'paralelo', no rompe)
+013_drop_firmas.sql     → DROP TABLE firmas (legacy de un firmante eliminado; el código ya no la usa)
 ```
 
 > ⚠️ **008, 010 y 011 son obligatorias** para el sistema actual. Si faltan: 008 → el flujo multi-firmante no existe; 010 → el contador de plan no incrementa (no-fatal); 011 → `signFirmante` falla de forma explícita (lo protegimos con un guard).
@@ -597,7 +580,7 @@ npm run lint     # ESLint
 |---|---|---|
 | Client Component | `src/lib/supabase/client.ts` | `createClient()` |
 | Server Component / Action / Route Handler | `src/lib/supabase/server.ts` | `createClient()` |
-| Bypasear RLS (storage, tabla firmas, sign, webhook, admin ops) | `src/lib/supabase/admin.ts` | `createAdminClient()` |
+| Bypasear RLS (storage, tabla firmantes, sign, webhook, admin ops) | `src/lib/supabase/admin.ts` | `createAdminClient()` |
 
 ### Reglas de desarrollo
 - **Textos**: SIEMPRE en `messages/es.json` y `messages/en.json`. Nunca hardcodear. Incluye placeholders, labels, meta_title, meta_description, meta_keywords.
@@ -638,7 +621,7 @@ npm run lint     # ESLint
 - **Detalle de firmantes en `/documentos`**: la columna compacta muestra TODOS los firmantes (no `slice(0,2)`); el detalle expandido usa `buildEntries` (todos). Máx 5 firmantes por doc.
 - **Estado "visto" del documento**: al abrir `/firmar/[token]`, además de marcar `firmantes.estado='visto'`, se actualiza `documentos.estado` a `'visto'` (solo si está `'pendiente'`) para que el dashboard del dueño lo refleje. El flujo legacy ya lo hacía.
 - **Preview de firma en móvil**: `/firmar/[token]` usa `PdfViewer.tsx` (pdf.js a `<canvas>`), NO un `<iframe>`. Los iframes con PDF se ven en PC pero quedan en blanco en Chrome Android / Safari iOS. `PdfViewer` reusa el patrón del posicionador (worker `blob:` + polyfill `Promise.try`, pdfjs-dist 4.7.76) y cae a un botón "Abrir documento" (pestaña nueva) si pdf.js falla. No volver al iframe.
-- **Multi-firmante vs legacy**: `signDocumentAction` resuelve el token contra `firmantes` primero y `documentos`/`firmas` después. Cualquier acción que toque firmas debe contemplar AMBAS tablas (ver `hideSignatureAction`, panel de detalle, feed de actividad del dashboard).
+- **Solo `firmantes` (la tabla `firmas` fue eliminada)**: `signDocumentAction` resuelve el token contra `firmantes`; si no existe → `not_found` (ya no hay fallback legacy). Todas las acciones de firma operan SOLO sobre `firmantes` (`hideSignatureAction`, panel de detalle, feed de actividad, `/dashboard/firmas`). No reintroducir referencias a `firmas`.
 - **Certificado**: se agrega **una sola vez**, cuando firma el último (`allSigned`). Construir la lista de firmantes con los `others` (BD) + el actual (en memoria) y ordenar por `orden`. La huella SHA-256 se calcula del **PDF original** (`pdfs-originales`), el folio es `documento.id`. No dibujar página de constancia por firmante en el flujo `firmantes`.
 - **`drawSignatureOnPage`**: en el documento va SOLO la imagen de la firma (transparente), sin caja ni borde de color. Los colores por firmante son solo del preview y del certificado. No reintroducir el `drawRectangle` de fondo.
 - **Subir firma**: el `signaturePng` que llega a `signDocumentAction` debe ser `data:image/png;base64,…` ≤ 2MB. La opción "Subir imagen" en `FirmarClient.tsx` ya normaliza a PNG (canvas) y hace fondo transparente; no romper ese pipeline.

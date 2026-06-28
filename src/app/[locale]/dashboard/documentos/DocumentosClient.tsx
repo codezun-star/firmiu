@@ -6,11 +6,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   hideDocumentAction,
-  resendSigningEmailAction,
   resendFirmantesEmailAction,
   resendFirmanteEmailAction,
   updateFirmanteEmailAction,
-  updateDocumentEmailAction,
 } from "@/app/actions/documents";
 import { toast } from "@/lib/toast";
 
@@ -86,7 +84,6 @@ function DocIcon() {
 interface SignerEntry {
   key: string;
   actionId: string;
-  kind: "firmante" | "legacy";
   nombre: string;
   correo: string;
   estado: string;
@@ -94,17 +91,10 @@ interface SignerEntry {
 }
 
 function buildEntries(doc: DocumentoRow): SignerEntry[] {
-  if (doc.firmantes && doc.firmantes.length > 0) {
-    return doc.firmantes.map(f => ({
-      key: f.id, actionId: f.id, kind: "firmante" as const,
-      nombre: f.nombre, correo: f.correo, estado: f.estado, token: f.token,
-    }));
-  }
-  return [{
-    key: doc.id, actionId: doc.id, kind: "legacy" as const,
-    nombre: doc.nombre_destinatario, correo: doc.correo_destinatario,
-    estado: doc.estado, token: doc.token,
-  }];
+  return (doc.firmantes ?? []).map(f => ({
+    key: f.id, actionId: f.id,
+    nombre: f.nombre, correo: f.correo, estado: f.estado, token: f.token,
+  }));
 }
 
 function SignerDetailPanel({ doc, locale, appUrl }: { doc: DocumentoRow; locale: string; appUrl: string }) {
@@ -124,9 +114,7 @@ function SignerDetailPanel({ doc, locale, appUrl }: { doc: DocumentoRow; locale:
 
   async function doResend(e: SignerEntry) {
     setBusyKey(e.key);
-    const res = e.kind === "firmante"
-      ? await resendFirmanteEmailAction(e.actionId, locale)
-      : await resendSigningEmailAction(e.actionId, locale);
+    const res = await resendFirmanteEmailAction(e.actionId, locale);
     setBusyKey(null);
     if (res.error) toast.error(t("resend_error"));
     else { toast.success(t("details.resent_one")); router.refresh(); }
@@ -135,18 +123,14 @@ function SignerDetailPanel({ doc, locale, appUrl }: { doc: DocumentoRow; locale:
   async function doSaveResend(e: SignerEntry) {
     const email = draft.trim().toLowerCase();
     setBusyKey(e.key);
-    const upd = e.kind === "firmante"
-      ? await updateFirmanteEmailAction(e.actionId, email, locale)
-      : await updateDocumentEmailAction(e.actionId, email, locale);
+    const upd = await updateFirmanteEmailAction(e.actionId, email, locale);
     if (upd.error) {
       setBusyKey(null);
       toast.error(upd.error === "email_invalid" ? t("details.email_invalid") : t("details.update_error"));
       return;
     }
     // Email saved — resend to that signer with the corrected address
-    const res = e.kind === "firmante"
-      ? await resendFirmanteEmailAction(e.actionId, locale)
-      : await resendSigningEmailAction(e.actionId, locale);
+    const res = await resendFirmanteEmailAction(e.actionId, locale);
     setBusyKey(null);
     setEditingKey(null);
     toast.success(res.error ? t("details.email_updated") : t("details.email_resent"));
@@ -286,12 +270,10 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
   }
 
   /* ── Resend email action ── */
-  function handleResend(id: string, hasFirmantes: boolean) {
+  function handleResend(id: string) {
     setResendingId(id);
     startResendTransition(async () => {
-      const result = hasFirmantes
-        ? await resendFirmantesEmailAction(id, locale)
-        : await resendSigningEmailAction(id, locale);
+      const result = await resendFirmantesEmailAction(id, locale);
       setResendingId(null);
       if (!result.error) {
         toast.success(t("resend_success"));
@@ -606,7 +588,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                                 )}
                               </button>
                               <button
-                                onClick={() => handleResend(doc.id, !!(doc.firmantes && doc.firmantes.length > 0))}
+                                onClick={() => handleResend(doc.id)}
                                 disabled={isResending}
                                 className="inline-flex items-center gap-1 text-xs font-medium text-[#6B7280] hover:text-[#1a3c5e] transition-colors disabled:opacity-50"
                               >
@@ -773,7 +755,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                             {isCopied ? t("copied") : t("copy_link")}
                           </button>
                           <button
-                            onClick={() => handleResend(doc.id, !!(doc.firmantes && doc.firmantes.length > 0))}
+                            onClick={() => handleResend(doc.id)}
                             disabled={isResending}
                             className="text-xs font-medium text-[#6B7280] hover:text-[#1a3c5e] transition-colors disabled:opacity-50"
                           >
