@@ -8,7 +8,7 @@ import { PDFDocument, PDFPage, PDFImage, rgb, StandardFonts } from "pdf-lib";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isValidUUID, isValidVerificationCode, escapeHtml } from "@/lib/security";
-import { emailShell, ctaButtonNavy } from "@/lib/email";
+import { emailShell, ctaButtonNavy, codeBox, ctaButton } from "@/lib/email";
 import { getPrefix, safeFilename } from "@/lib/utils";
 
 /** Signing links expire 30 days after the document was created. */
@@ -515,6 +515,26 @@ async function signFirmante({
   if (now.getTime() - createdAt.getTime() > TOKEN_TTL_MS)
     return { errorKey: "not_found" };
 
+  // Read signing mode separately + tolerantly so signing keeps working even if
+  // migration 012 (modo_firma) hasn't been applied yet (defaults to paralelo).
+  const { data: modoRow } = await admin
+    .from("documentos")
+    .select("modo_firma")
+    .eq("id", doc.id)
+    .maybeSingle();
+  const isSequential = ((modoRow as { modo_firma?: string } | null)?.modo_firma ?? "paralelo") === "secuencial";
+
+  // Sequential mode: refuse to sign until everyone with a lower orden has signed.
+  if (isSequential) {
+    const { data: earlier } = await admin
+      .from("firmantes")
+      .select("estado")
+      .eq("documento_id", doc.id)
+      .eq("oculto", false)
+      .lt("orden", firmante.orden ?? 1);
+    if ((earlier ?? []).some(e => e.estado !== "firmado")) return { errorKey: "not_your_turn" };
+  }
+
   const ip = getRequestIp();
   const uaString = clientUA ?? headers().get("user-agent") ?? null;
   const { browser, os } = parseUserAgent(uaString);
@@ -630,6 +650,52 @@ async function signFirmante({
     await admin.from("documentos")
       .update({ url_pdf_firmado: firmadoPath, estado: allSigned ? "firmado" : "visto" })
       .eq("id", doc.id);
+
+    // 5b. Sequential mode: now that this signer is done, email the NEXT pending
+    //     signer (lowest orden still unsigned). Non-fatal.
+    if (isSequential && !allSigned) {
+      try {
+        const { data: next } = await admin
+          .from("firmantes")
+          .select("token, nombre, correo, codigo_verificacion")
+          .eq("documento_id", doc.id)
+          .eq("oculto", false)
+          .neq("estado", "firmado")
+          .order("orden", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (next?.correo) {
+          let ownerName = "Alguien";
+          try {
+            const { data: od } = await admin.auth.admin.getUserById(doc.owner_id);
+            ownerName = escapeHtml((od?.user?.user_metadata?.nombre as string | undefined) ?? "Alguien");
+          } catch { /* keep default */ }
+
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+          const signingUrl = `${appUrl}/firmar/${next.token}`;
+          const tituloEscaped = escapeHtml(doc.titulo);
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          await resend.emails.send({
+            from: "Firmiu <noreply@firmiu.com>",
+            to: next.correo as string,
+            subject: `${ownerName} te envió un documento para firmar`,
+            html: emailShell(`
+              <h2 style="color:#111827;font-size:18px;margin:0 0 12px">Es tu turno de firmar</h2>
+              <p style="color:#374151;margin:0 0 24px;line-height:1.6">
+                <strong>${ownerName}</strong> te ha enviado el documento <strong>&ldquo;${tituloEscaped}&rdquo;</strong> para que lo firmes digitalmente.
+              </p>
+              <p style="color:#374151;margin:0 0 8px;font-size:14px;font-weight:600">Tu código de verificación:</p>
+              ${codeBox(String(next.codigo_verificacion ?? ""))}
+              ${ctaButton(signingUrl, "Firmar documento →")}
+              <p style="color:#9ca3af;font-size:12px;margin:0;border-top:1px solid #f3f4f6;padding-top:16px">
+                Si no esperabas este documento, puedes ignorar este correo.
+              </p>
+            `),
+          });
+        }
+      } catch { /* non-fatal */ }
+    }
 
     if (allSigned) {
       // Notify owner only when all have signed

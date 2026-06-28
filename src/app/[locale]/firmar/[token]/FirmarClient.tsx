@@ -26,6 +26,8 @@ interface FirmarClientProps {
   pdfUrl: string | null;
   fechaFirma: string | null;
   signatureField?: SignatureField | null;
+  /** Sequential signing: previous signers haven't signed yet — block the form. */
+  waiting?: boolean;
 }
 
 export default function FirmarClient({
@@ -37,6 +39,7 @@ export default function FirmarClient({
   pdfUrl,
   fechaFirma,
   signatureField = null,
+  waiting = false,
 }: FirmarClientProps) {
   const t = useTranslations("sign");
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,6 +64,10 @@ export default function FirmarClient({
 
   if (estado === "firmado") {
     return <AlreadySigned locale={locale} t={t} token={token} fechaFirma={fechaFirma} />;
+  }
+
+  if (waiting) {
+    return <WaitingTurn locale={locale} t={t} nombreDestinatario={nombreDestinatario} />;
   }
 
   // ── Canvas helpers ──────────────────────────────────────────
@@ -506,6 +513,44 @@ export default function FirmarClient({
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
           <span className="text-[11px] text-[#9CA3AF]">Powered by <strong className="text-[#6B7280]">firmiu</strong></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── WaitingTurn (sequential signing, not this signer's turn yet) ──────────────
+
+function WaitingTurn({
+  locale,
+  t,
+  nombreDestinatario,
+}: {
+  locale: string;
+  t: ReturnType<typeof useTranslations>;
+  nombreDestinatario: string;
+}) {
+  return (
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
+      <header className="bg-[#1a3c5e] px-5 py-3.5">
+        <Logo locale={locale} white />
+      </header>
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm text-center">
+          <div className="flex justify-center mb-5">
+            <div className="w-16 h-16 rounded-2xl bg-[#FFF7ED] border border-[#FED7AA] flex items-center justify-center">
+              <svg className="w-8 h-8 text-[#F97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-lg font-bold text-[#111827] mb-1">{t("waiting_turn_title")}</h1>
+          <p className="text-sm text-[#6B7280]">{nombreDestinatario}</p>
+          <p className="text-sm text-[#6B7280] mt-2 leading-relaxed">{t("waiting_turn_desc")}</p>
+          <div className="flex items-center justify-center gap-1.5 mt-8">
+            <span className="text-[11px] text-[#9CA3AF]">Powered by <strong className="text-[#6B7280]">firmiu</strong></span>
+          </div>
         </div>
       </div>
     </div>

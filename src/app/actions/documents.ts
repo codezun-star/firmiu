@@ -366,7 +366,8 @@ async function createOneDocument(
   appUrl: string,
   ownerName: string,
   pdfFile: File,
-  firmantes: FirmanteInput[]
+  firmantes: FirmanteInput[],
+  modo: "paralelo" | "secuencial" = "paralelo"
 ): Promise<boolean> {
   const docId = crypto.randomUUID();
   const storagePath = `${userId}/${docId}.pdf`;
@@ -380,7 +381,10 @@ async function createOneDocument(
     .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: false });
   if (uploadError) return false;
 
-  // Create documento row (backward compat: use first signer for legacy fields)
+  // Create documento row (backward compat: use first signer for legacy fields).
+  // modo_firma is set in a separate, non-fatal step so document creation still
+  // works if migration 012 hasn't been applied — in that case it degrades to
+  // 'paralelo' (everyone is emailed at once).
   const { error: docError } = await supabase
     .from("documentos")
     .insert({
@@ -397,11 +401,21 @@ async function createOneDocument(
     return false;
   }
 
-  // Create firmantes rows + send emails in parallel
+  let effectiveModo: "paralelo" | "secuencial" = modo;
+  if (modo === "secuencial") {
+    const { error: modoErr } = await admin.from("documentos").update({ modo_firma: "secuencial" }).eq("id", docId);
+    if (modoErr) effectiveModo = "paralelo"; // column missing → fall back, email everyone
+  }
+
+  // Create firmantes rows + send emails in parallel.
+  // In 'secuencial' mode ALL firmantes are created (so their tokens exist), but
+  // only the FIRST one (orden 1) is emailed now; signFirmante emails the next
+  // one each time someone signs.
   const tituloEscaped = escapeHtml(titulo);
   const resend = new Resend(process.env.RESEND_API_KEY);
 
-  await Promise.all(firmantes.map(async (f, orden) => {
+  await Promise.all(firmantes.map(async (f, idx) => {
+    const orden = idx + 1;
     const verificationCode = String(Math.floor(1000 + Math.random() * 9000));
     const nombreFirmante = sanitizeText(f.nombre, 100);
     const correoFirmante = f.correo.trim().toLowerCase();
@@ -411,7 +425,7 @@ async function createOneDocument(
       documento_id: docId,
       nombre: nombreFirmante,
       correo: correoFirmante,
-      orden: orden + 1,
+      orden,
       codigo_verificacion: verificationCode,
       pagina: f.pagina,
       campo_x: f.campo_x,
@@ -421,12 +435,15 @@ async function createOneDocument(
     }).select("token").single();
 
     if (insertError || !firmante) {
-      console.error(`[Firmiu] ERROR insert firmante ${orden + 1} (${correoFirmante}):`, insertError?.message ?? "firmante null");
+      console.error(`[Firmiu] ERROR insert firmante ${orden} (${correoFirmante}):`, insertError?.message ?? "firmante null");
       return;
     }
 
+    // Sequential: hold every email except the first signer's.
+    if (effectiveModo === "secuencial" && idx !== 0) return;
+
     const signingUrl = `${appUrl}/firmar/${firmante.token}`;
-    console.log(`[Firmiu] Firmante ${orden + 1}: ${correoFirmante} | token: ${firmante.token} | doc: ${docId}`);
+    console.log(`[Firmiu] Firmante ${orden}: ${correoFirmante} | token: ${firmante.token} | doc: ${docId}`);
 
     try {
       await resend.emails.send({
@@ -446,13 +463,18 @@ async function createOneDocument(
           </p>
         `),
       });
-      console.log(`[Firmiu] Email enviado a firmante ${orden + 1}: ${correoFirmante} (doc: ${docId})`);
+      console.log(`[Firmiu] Email enviado a firmante ${orden}: ${correoFirmante} (doc: ${docId})`);
     } catch (err) {
-      console.error(`[Firmiu] ERROR email firmante ${orden + 1} (${correoFirmante}):`, err instanceof Error ? err.message : String(err));
+      console.error(`[Firmiu] ERROR email firmante ${orden} (${correoFirmante}):`, err instanceof Error ? err.message : String(err));
     }
   }));
 
   return true;
+}
+
+/** Normalize an untrusted string to a valid signing mode. */
+function parseModo(raw: unknown): "paralelo" | "secuencial" {
+  return raw === "secuencial" ? "secuencial" : "paralelo";
 }
 
 export async function uploadDocumentMultiAction(
@@ -471,6 +493,8 @@ export async function uploadDocumentMultiAction(
   const validationError = await validateDocInput(pdfFile, firmantes);
   if (validationError) return { errorKey: validationError, success: false };
 
+  const modo = parseModo(formData.get("modo"));
+
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`${getPrefix(locale)}/login`);
@@ -482,7 +506,7 @@ export async function uploadDocumentMultiAction(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
 
-  const ok = await createOneDocument(admin, supabase, user.id, appUrl, ownerName, pdfFile as File, firmantes);
+  const ok = await createOneDocument(admin, supabase, user.id, appUrl, ownerName, pdfFile as File, firmantes, modo);
   if (!ok) return { errorKey: "upload_failed", success: false };
 
   if (subId) await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
@@ -507,7 +531,7 @@ export async function uploadDocumentsBatchAction(
   if (count === 0) return { errorKey: "pdf_required", success: false };
 
   // Collect every document from the FormData
-  const docs: { pdfFile: File | null; firmantes: FirmanteInput[] }[] = [];
+  const docs: { pdfFile: File | null; firmantes: FirmanteInput[]; modo: "paralelo" | "secuencial" }[] = [];
   for (let i = 0; i < count; i++) {
     const pdfFile = formData.get(`pdf_${i}`) as File | null;
     let firmantes: FirmanteInput[];
@@ -516,7 +540,7 @@ export async function uploadDocumentsBatchAction(
     } catch {
       return { errorKey: "signers_data_invalid", success: false };
     }
-    docs.push({ pdfFile, firmantes });
+    docs.push({ pdfFile, firmantes, modo: parseModo(formData.get(`modo_${i}`)) });
   }
 
   // Validate ALL documents up front — nothing is created if any one is invalid
@@ -542,7 +566,7 @@ export async function uploadDocumentsBatchAction(
   // Create sequentially so the monthly counter increments cleanly per document
   let created = 0;
   for (const d of docs) {
-    const ok = await createOneDocument(admin, supabase, user.id, appUrl, ownerName, d.pdfFile as File, d.firmantes);
+    const ok = await createOneDocument(admin, supabase, user.id, appUrl, ownerName, d.pdfFile as File, d.firmantes, d.modo);
     if (ok) {
       created++;
       if (subId) await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
