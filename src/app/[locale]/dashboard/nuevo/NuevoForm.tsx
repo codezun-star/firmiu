@@ -133,9 +133,15 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
   }
 
   function handlePlace(signerIndex: number, pos: PosicionFirma) {
+    // Only auto-advance to the next unplaced signer on the FIRST placement.
+    // Repositioning (drag / preset on an already-placed signer) must NOT change
+    // the active signer, otherwise dragging would jump to another signer.
+    const wasUnplaced = firmantes[signerIndex]?.posicion == null;
     setFirmantes(prev => prev.map((f, i) => i === signerIndex ? { ...f, posicion: pos } : f));
-    const next = firmantes.findIndex((f, i) => i !== signerIndex && f.posicion === null);
-    if (next !== -1) setActiveSigner(next);
+    if (wasUnplaced) {
+      const next = firmantes.findIndex((f, i) => i !== signerIndex && f.posicion === null);
+      if (next !== -1) setActiveSigner(next);
+    }
   }
 
   function addSigner() {
@@ -378,6 +384,13 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
           positionActive={(n) => t("position_active", { n })}
           positionPlaced={(n) => t("position_placed", { n })}
           positionNotPlaced={t("position_not_placed")}
+          quick={{
+            label: t("position_quick"),
+            bl: t("pos_bottom_left"),
+            bc: t("pos_bottom_center"),
+            br: t("pos_bottom_right"),
+            drag: t("position_drag_hint"),
+          }}
         />
       </div>
       <div className="flex gap-3 max-w-2xl mx-auto">

@@ -452,6 +452,11 @@
     "order_parallel_desc": "Each signer receives the document immediately and signs whenever they want.",
     "order_sequential": "One by one",
     "order_sequential_desc": "It's sent to the first signer; once they sign, it goes to the next, in order.",
+    "position_quick": "Quick position",
+    "pos_bottom_left": "Bottom left",
+    "pos_bottom_center": "Bottom center",
+    "pos_bottom_right": "Bottom right",
+    "position_drag_hint": "Or click on the document and drag the box to fine-tune.",
     "errors": {
       "pdf_required": "Please select a PDF file.",
       "pdf_invalid": "The file must be a valid PDF.",

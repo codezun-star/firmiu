@@ -452,6 +452,11 @@
     "order_parallel_desc": "Cada firmante recibe el documento de inmediato y firma cuando quiera.",
     "order_sequential": "Uno por uno",
     "order_sequential_desc": "Se envía al primer firmante; cuando firma, le llega al siguiente, en orden.",
+    "position_quick": "Posición rápida",
+    "pos_bottom_left": "Abajo izq.",
+    "pos_bottom_center": "Abajo centro",
+    "pos_bottom_right": "Abajo der.",
+    "position_drag_hint": "O haz clic en el documento y arrastra el recuadro para ajustar.",
     "errors": {
       "pdf_required": "Debes seleccionar un archivo PDF.",
       "pdf_invalid": "El archivo debe ser un PDF válido.",

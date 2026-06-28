@@ -505,7 +505,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                       <td className="px-5 py-3.5">
                         {doc.firmantes && doc.firmantes.length > 0 ? (
                           <div className="space-y-0.5">
-                            {doc.firmantes.slice(0, 2).map((f, i) => (
+                            {doc.firmantes.map((f, i) => (
                               <div key={i} className="flex items-center gap-1.5">
                                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.estado === "firmado" ? "bg-[#10B981]" : "bg-[#F97316]"}`} />
                                 <span className="text-xs text-[#374151] truncate max-w-[140px]">{f.nombre}</span>
@@ -713,7 +713,7 @@ export default function DocumentosClient({ documents, locale, appUrl, page, tota
                   <div className="pl-9">
                     {doc.firmantes && doc.firmantes.length > 0 ? (
                       <div className="space-y-0.5">
-                        {doc.firmantes.slice(0, 2).map((f, i) => (
+                        {doc.firmantes.map((f, i) => (
                           <div key={i} className="flex items-center gap-1.5">
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.estado === "firmado" ? "bg-[#10B981]" : "bg-[#F97316]"}`} />
                             <span className="text-xs text-[#374151] truncate">{f.nombre}</span>

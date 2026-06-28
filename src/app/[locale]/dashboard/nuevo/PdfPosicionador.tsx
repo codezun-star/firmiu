@@ -39,6 +39,8 @@ interface Props {
   positionActive: (n: number) => string;
   positionPlaced: (n: number) => string;
   positionNotPlaced: string;
+  // Quick-position presets + drag hint (labels)
+  quick: { label: string; bl: string; bc: string; br: string; drag: string };
 }
 
 export default function PdfPosicionador({
@@ -55,6 +57,7 @@ export default function PdfPosicionador({
   positionActive,
   positionPlaced,
   positionNotPlaced,
+  quick,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
@@ -66,14 +69,19 @@ export default function PdfPosicionador({
   // for a crisp render on high-DPI screens (fixes the blurry preview).
   const [disp, setDisp] = useState<{ w: number; h: number } | null>(null);
   const pdfRef = useRef<{ getPage: (n: number) => Promise<unknown> } | null>(null);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
 
   const renderPage = useCallback(async (pageNum: number) => {
     if (!pdfRef.current || !canvasRef.current) return;
+    // Cancel any in-flight render first. Rendering twice on the same canvas throws
+    // ("multiple render()") and can leave the preview blank/garbled — that was the
+    // intermittent "no se previsualiza bien" bug. Cancelling serializes renders.
+    if (renderTaskRef.current) { try { renderTaskRef.current.cancel(); } catch { /* ignore */ } renderTaskRef.current = null; }
     setLoading(true);
     try {
       const page = await pdfRef.current.getPage(pageNum) as {
         getViewport: (o: { scale: number }) => { width: number; height: number };
-        render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> };
+        render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void>; cancel: () => void };
       };
       const pane = paneRef.current;
       const paneW = (pane?.clientWidth ?? 0) || 640;
@@ -95,9 +103,14 @@ export default function PdfPosicionador({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       setDisp({ w: Math.round(displayW), h: Math.round(displayH) });
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      const task = page.render({ canvasContext: ctx, viewport });
+      renderTaskRef.current = task;
+      await task.promise;
+      renderTaskRef.current = null;
     } catch (err) {
-      console.error("[PdfPosicionador] page render failed:", err);
+      if ((err as { name?: string })?.name !== "RenderingCancelledException") {
+        console.error("[PdfPosicionador] page render failed:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -174,7 +187,9 @@ export default function PdfPosicionador({
     const pane = paneRef.current;
     if (!pane || typeof ResizeObserver === "undefined") return;
     let raf = 0;
+    let first = true;
     const ro = new ResizeObserver(() => {
+      if (first) { first = false; return; } // initial fire handled by the load effect
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         if (pdfRef.current && !pdfFailed) renderPage(currentPage);
@@ -200,6 +215,55 @@ export default function PdfPosicionador({
     placeFromPoint(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
   }
 
+  // ── Drag the active signer's box to fine-tune (mouse + touch) ──
+  const draggingRef = useRef(false);
+  const grabOffset = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+
+  function onBoxPointerDown(e: React.PointerEvent, i: number) {
+    e.stopPropagation();
+    e.preventDefault();
+    onSelectSigner(i);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const pos = firmantes[i].posicion;
+    if (!rect || !pos) return;
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    grabOffset.current = { dx: px - pos.campo_x, dy: py - pos.campo_y };
+    draggingRef.current = true;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  }
+
+  function onBoxPointerMove(e: React.PointerEvent, i: number) {
+    if (!draggingRef.current) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    const campo_x = Math.max(0, Math.min(1 - FIELD_W, px - grabOffset.current.dx));
+    const campo_y = Math.max(0, Math.min(1 - FIELD_H, py - grabOffset.current.dy));
+    onPlace(i, { pagina: currentPage, campo_x, campo_y, campo_ancho: FIELD_W, campo_alto: FIELD_H });
+  }
+
+  function onBoxPointerUp(e: React.PointerEvent) {
+    draggingRef.current = false;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+  }
+
+  // ── One-click presets at common signature spots (bottom of the page) ──
+  function placePreset(corner: "bl" | "bc" | "br") {
+    const margin = 0.06;
+    let campo_x = margin;
+    if (corner === "bc") campo_x = 0.5 - FIELD_W / 2;
+    else if (corner === "br") campo_x = 1 - FIELD_W - margin;
+    onPlace(activeSigner, {
+      pagina: currentPage,
+      campo_x: Math.max(0, Math.min(1 - FIELD_W, campo_x)),
+      campo_y: Math.max(0, Math.min(1 - FIELD_H, 0.86)),
+      campo_ancho: FIELD_W,
+      campo_alto: FIELD_H,
+    });
+  }
+
   function fieldStyle(pos: PosicionFirma, index: number) {
     if (pos.pagina !== currentPage) return null;
     const color = SIGNER_COLORS[index % SIGNER_COLORS.length];
@@ -219,10 +283,17 @@ export default function PdfPosicionador({
     if (!f.posicion) return null;
     const style = fieldStyle(f.posicion, i);
     if (!style) return null;
+    const isActive = i === activeSigner;
     return (
-      <div key={i} className="absolute border-2 rounded-[4px] flex items-center justify-center pointer-events-none"
-        style={{ ...style, background: `${style.borderColor}18` }}>
-        <span className="text-[11px] font-bold px-1" style={{ color: style.color }}>{i + 1}</span>
+      <div key={i}
+        className={`absolute border-2 rounded-[4px] flex items-center justify-center ${isActive ? "cursor-move touch-none" : "pointer-events-none"}`}
+        style={{ ...style, background: `${style.borderColor}18` }}
+        onPointerDown={isActive ? (e) => onBoxPointerDown(e, i) : undefined}
+        onPointerMove={isActive ? (e) => onBoxPointerMove(e, i) : undefined}
+        onPointerUp={isActive ? onBoxPointerUp : undefined}
+        onPointerCancel={isActive ? onBoxPointerUp : undefined}
+      >
+        <span className="text-[11px] font-bold px-1 pointer-events-none" style={{ color: style.color }}>{i + 1}</span>
       </div>
     );
   });
@@ -294,6 +365,20 @@ export default function PdfPosicionador({
           style={{ background: `${activeColor}15`, color: activeColor, border: `1px solid ${activeColor}30` }}
         >
           {positionActive(activeSigner + 1)}
+        </div>
+
+        {/* Quick-position presets */}
+        <div className="rounded-[9px] border border-[#E5E7EB] bg-white p-2.5">
+          <p className="text-[11px] font-medium text-[#6B7280] mb-1.5">{quick.label}</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {([["bl", quick.bl], ["bc", quick.bc], ["br", quick.br]] as const).map(([c, label]) => (
+              <button key={c} type="button" onClick={() => placePreset(c)}
+                className="text-[11px] font-medium text-[#374151] border border-[#E5E7EB] rounded-[7px] py-1.5 hover:border-[#1a3c5e] hover:text-[#1a3c5e] transition-colors">
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-[#9CA3AF] mt-1.5">{quick.drag}</p>
         </div>
 
         {/* Signer tabs */}
