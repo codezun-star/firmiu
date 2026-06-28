@@ -158,6 +158,8 @@
       "cta_free": "Empezar gratis",
       "cta_paid": "Empezar ahora",
       "popular": "Más popular",
+      "coming_soon": "Próximamente",
+      "coming_soon_desc": "Este plan estará disponible pronto.",
       "included_title": "Incluido en todos los planes",
       "included_legal": "Firma con validez legal",
       "included_ip": "Registro de IP, dispositivo y ubicación",
@@ -433,6 +435,14 @@
     "security_note": "100% legal · Almacenamiento cifrado · Audit trail",
     "modal_title": "¡Documento enviado!",
     "modal_subtitle": "El enlace de firma fue enviado a {name}. Te notificaremos cuando firme.",
+    "modal_subtitle_batch": "{count} documentos fueron enviados a sus firmantes. Te notificaremos cuando firmen.",
+    "add_document": "Agregar otro documento",
+    "send_all": "Enviar todo ({n})",
+    "batch_title": "Documentos en este envío",
+    "document_n": "Documento {n}",
+    "remove_document": "Quitar",
+    "signers_count": "{n} firmante(s)",
+    "batch_hint": "Tu plan permite enviar hasta {max} documentos a la vez.",
     "errors": {
       "pdf_required": "Debes seleccionar un archivo PDF.",
       "pdf_invalid": "El archivo debe ser un PDF válido.",
@@ -445,7 +455,8 @@
       "min_signers": "Agrega al menos un firmante.",
       "signers_data_invalid": "Datos de firmantes inválidos.",
       "position_required": "Posiciona la firma de todos los firmantes en el PDF.",
-      "email_duplicate": "Este correo ya fue agregado como firmante."
+      "email_duplicate": "Este correo ya fue agregado como firmante.",
+      "batch_limit_reached": "Alcanzaste el máximo de documentos por envío de tu plan."
     }
   },
   "sign": {
@@ -493,7 +504,9 @@
     "modal_title": "¡Firma completada!",
     "modal_subtitle": "Tu documento fue firmado y registrado exitosamente. Gracias.",
     "signing": "Firmando...",
-    "pdf_error": "No se pudo cargar el documento."
+    "pdf_error": "No se pudo cargar el documento.",
+    "pdf_loading": "Cargando documento…",
+    "open_pdf": "Abrir documento"
   },
   "sign_success": {
     "title": "¡Documento firmado!",
@@ -593,6 +606,7 @@
     "upgrade": "Elige tu plan",
     "upgrade_desc": "Más documentos, almacenamiento extendido y funciones avanzadas.",
     "coming_soon": "Próximamente",
+    "coming_soon_desc": "Este plan estará disponible pronto.",
     "popular": "Más popular",
     "per_month": "/mes",
     "plan_limit_free": "3 docs / mes",

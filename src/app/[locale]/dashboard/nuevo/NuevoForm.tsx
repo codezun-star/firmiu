@@ -1,17 +1,22 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState, useRef, useTransition, useEffect, useCallback } from "react";
+import { useState, useRef, useTransition, useCallback } from "react";
 import dynamic from "next/dynamic";
 import SuccessModal from "@/components/SuccessModal";
-import { toast } from "@/lib/toast";
-import { uploadDocumentMultiAction } from "@/app/actions/documents";
+import { uploadDocumentsBatchAction } from "@/app/actions/documents";
 import type { FirmanteLocal, PosicionFirma } from "./PdfPosicionador";
 
 const PdfPosicionador = dynamic(() => import("./PdfPosicionador"), { ssr: false });
 
 const SIGNER_COLORS = ["#1a3c5e", "#F97316", "#10B981", "#8B5CF6", "#EF4444"];
 const MAX_SIGNERS = 5;
+
+// A completed document waiting in the batch (its own PDF + signers + positions).
+interface DocDraft {
+  file: File;
+  firmantes: FirmanteLocal[];
+}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -26,19 +31,24 @@ interface NuevoFormProps {
   locale: string;
   defaultNombre?: string;
   defaultCorreo?: string;
+  /** Max documents this user can send in one batch (plan cap ∩ monthly quota). */
+  maxBatch?: number;
 }
 
-export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = "" }: NuevoFormProps) {
+export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = "", maxBatch = 1 }: NuevoFormProps) {
   const t = useTranslations("nuevo");
   const prefix = locale === "es" ? "" : `/${locale}`;
 
-  // Pasos: 0=Documento, 1=Posicionar, 2=Firmantes
+  // Documentos ya configurados, esperando en el lote
+  const [docs, setDocs] = useState<DocDraft[]>([]);
+
+  // Pasos del documento ACTUAL: 0=Documento, 1=Posicionar, 2=Firmantes
   const [step, setStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Firmantes
+  // Firmantes del documento ACTUAL
   const [firmantes, setFirmantes] = useState<FirmanteLocal[]>([
     { nombre: defaultNombre, correo: defaultCorreo, posicion: null },
   ]);
@@ -47,6 +57,10 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
   const [showModal, setShowModal] = useState(false);
   const [modalSubtitle, setModalSubtitle] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // ¿Se puede agregar otro documento al lote después del actual?
+  const canAddMore = docs.length + 1 < maxBatch;
+  const docNumber = docs.length + 1;
 
   function applyFile(f: File | null) {
     if (!f) return;
@@ -102,51 +116,89 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
     setFirmantes(prev => prev.map((f, idx) => idx === i ? { ...f, [field]: value } : f));
   }
 
-  const handleSubmit = useCallback(async () => {
-    setErrorKey(null);
-
-    // Validaciones
+  // Valida el documento ACTUAL (archivo + firmantes + posiciones). errorKey | null.
+  function validateCurrent(): string | null {
+    if (!file) return "pdf_required";
     for (const f of firmantes) {
-      if (!f.nombre.trim()) { setErrorKey("name_required"); return; }
+      if (!f.nombre.trim()) return "name_required";
       const email = f.correo.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErrorKey("email_invalid"); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "email_invalid";
     }
     const correos = firmantes.map(f => f.correo.trim().toLowerCase());
-    if (new Set(correos).size !== correos.length) { setErrorKey("email_duplicate"); return; }
-    if (!firmantes.every(f => f.posicion !== null)) { setErrorKey("position_required"); return; }
+    if (new Set(correos).size !== correos.length) return "email_duplicate";
+    if (!firmantes.every(f => f.posicion !== null)) return "position_required";
+    return null;
+  }
+
+  // Guarda el documento actual en el lote y reinicia el asistente para el siguiente
+  function addAnotherDocument() {
+    const err = validateCurrent();
+    if (err) { setErrorKey(err); return; }
+    setDocs(prev => [...prev, { file: file!, firmantes }]);
+    setFile(null);
+    setFirmantes([makeEmptyFirmante()]);
+    setActiveSigner(0);
+    setStep(0);
+    setErrorKey(null);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function removeDoc(i: number) {
+    setDocs(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  function serializeFirmantes(list: FirmanteLocal[]) {
+    return JSON.stringify(list.map(f => ({
+      nombre: f.nombre.trim(),
+      correo: f.correo.trim().toLowerCase(),
+      pagina: f.posicion!.pagina,
+      campo_x: f.posicion!.campo_x,
+      campo_y: f.posicion!.campo_y,
+      campo_ancho: f.posicion!.campo_ancho,
+      campo_alto: f.posicion!.campo_alto,
+    })));
+  }
+
+  const handleSubmit = useCallback(async () => {
+    const err = validateCurrent();
+    if (err) { setErrorKey(err); return; }
+    setErrorKey(null);
+
+    const allDocs: DocDraft[] = [...docs, { file: file!, firmantes }];
 
     startTransition(async () => {
-      // File no es serializable como argumento plano — debe ir en FormData
       const formData = new FormData();
-      formData.append("pdf", file!);
       formData.append("locale", locale);
-      formData.append("firmantes", JSON.stringify(
-        firmantes.map(f => ({
-          nombre: f.nombre.trim(),
-          correo: f.correo.trim().toLowerCase(),
-          pagina: f.posicion!.pagina,
-          campo_x: f.posicion!.campo_x,
-          campo_y: f.posicion!.campo_y,
-          campo_ancho: f.posicion!.campo_ancho,
-          campo_alto: f.posicion!.campo_alto,
-        }))
-      ));
-      const result = await uploadDocumentMultiAction(formData);
+      formData.append("count", String(allDocs.length));
+      allDocs.forEach((d, i) => {
+        formData.append(`pdf_${i}`, d.file);
+        formData.append(`firmantes_${i}`, serializeFirmantes(d.firmantes));
+      });
+
+      const result = await uploadDocumentsBatchAction(formData);
       if (result.success) {
-        setModalSubtitle(
-          firmantes.length === 1
-            ? t("modal_subtitle", { name: firmantes[0].nombre })
-            : t("modal_subtitle_multi", { n: firmantes.length })
-        );
+        const total = result.created ?? allDocs.length;
+        if (total > 1) {
+          setModalSubtitle(t("modal_subtitle_batch", { count: total }));
+        } else {
+          const only = allDocs[0].firmantes;
+          setModalSubtitle(
+            only.length === 1
+              ? t("modal_subtitle", { name: only[0].nombre })
+              : t("modal_subtitle_multi", { n: only.length })
+          );
+        }
         setShowModal(true);
       } else {
         setErrorKey(result.errorKey ?? "generic");
       }
     });
-  }, [file, firmantes, locale, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docs, file, firmantes, locale, t]);
 
   // Indicador de pasos
   const steps = [t("step_upload"), t("step_position"), t("step_signers")];
+  const submitLabel = docs.length === 0 ? t("submit") : t("send_all", { n: docs.length + 1 });
 
   return (
     <>
@@ -156,6 +208,38 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
           subtitle={modalSubtitle}
           redirectTo={`${prefix}/dashboard/documentos`}
         />
+      )}
+
+      {/* Lote: documentos ya agregados */}
+      {docs.length > 0 && (
+        <div className="bg-white rounded-[14px] border-[0.5px] border-[#E5E7EB] p-4 mb-4">
+          <p className="text-sm font-semibold text-[#111827] mb-3">{t("batch_title")}</p>
+          <div className="space-y-2">
+            {docs.map((d, i) => (
+              <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-[9px] bg-[#F9FAFB] border border-[#E5E7EB]">
+                <span className="w-5 h-5 rounded-full bg-[#10B981] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-[#374151] truncate">{d.file.name}</p>
+                  <p className="text-[11px] text-[#9CA3AF]">{t("signers_count", { n: d.firmantes.length })}</p>
+                </div>
+                <button type="button" onClick={() => removeDoc(i)}
+                  className="text-[11px] text-[#9CA3AF] hover:text-red-500 transition-colors shrink-0">
+                  {t("remove_document")}
+                </button>
+              </div>
+            ))}
+          </div>
+          {maxBatch > 1 && (
+            <p className="text-[11px] text-[#9CA3AF] mt-3">{t("batch_hint", { max: maxBatch })}</p>
+          )}
+        </div>
+      )}
+
+      {/* Etiqueta del documento que se está configurando (solo en modo lote) */}
+      {maxBatch > 1 && (
+        <p className="text-xs font-semibold text-[#1a3c5e] mb-2">{t("document_n", { n: docNumber })}</p>
       )}
 
       {/* Stepper */}
@@ -395,6 +479,17 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
             </div>
           </div>
 
+          {/* Agregar otro documento al lote */}
+          {canAddMore && (
+            <button type="button" onClick={addAnotherDocument} disabled={isPending}
+              className="w-full border-2 border-dashed border-[#1a3c5e]/30 text-[#1a3c5e] font-semibold py-3 px-4 rounded-[9px] transition-colors text-sm flex items-center justify-center gap-2 hover:bg-[#1a3c5e]/5 disabled:opacity-60">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {t("add_document")}
+            </button>
+          )}
+
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(1)}
               className="flex-1 bg-white border border-[#E5E7EB] text-[#374151] font-semibold py-3 px-4 rounded-[9px] transition-colors text-sm hover:bg-[#F9FAFB]">
@@ -405,7 +500,7 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
               {isPending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>{t("submit")}</span>
+                  <span>{submitLabel}</span>
                 </>
               ) : (
                 <>
@@ -413,7 +508,7 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  {t("submit")}
+                  {submitLabel}
                 </>
               )}
             </button>

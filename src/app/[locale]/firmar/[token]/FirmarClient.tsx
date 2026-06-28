@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import Logo from "@/components/Logo";
 import DownloadSignedButton from "@/components/DownloadSignedButton";
+import PdfViewer from "@/components/PdfViewer";
 import SuccessModal from "@/components/SuccessModal";
 import { signDocumentAction } from "@/app/actions/sign";
 import { toast } from "@/lib/toast";
@@ -294,7 +295,13 @@ export default function FirmarClient({
             </div>
           </div>
           {pdfUrl ? (
-            <iframe src={pdfUrl} className="w-full h-[420px]" title={titulo} referrerPolicy="no-referrer" />
+            <PdfViewer
+              pdfUrl={pdfUrl}
+              title={titulo}
+              loadingLabel={t("pdf_loading")}
+              errorLabel={t("pdf_error")}
+              openLabel={t("open_pdf")}
+            />
           ) : (
             <div className="h-44 flex flex-col items-center justify-center bg-[#FAFAFA] gap-2">
               <svg className="w-10 h-10 text-[#E5E7EB]" fill="none" stroke="currentColor" viewBox="0 0 24 24">

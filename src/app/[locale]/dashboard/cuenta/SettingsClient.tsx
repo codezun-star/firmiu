@@ -364,7 +364,10 @@ export default function SettingsClient({
             {PLANS.map((p) => {
               const isCurrent = plan === p.key;
               const isPro     = p.key === "pro";
-              const features  = p.featureKeys.map((k) => t(k as Parameters<typeof t>[0]));
+              // Business deshabilitado por ahora: "Próximamente", sin precio,
+              // sin funcionalidades y sin botón de compra.
+              const isComingSoon = p.key === "business";
+              const features  = isComingSoon ? [] : p.featureKeys.map((k) => t(k as Parameters<typeof t>[0]));
 
               return (
                 <div
@@ -385,6 +388,15 @@ export default function SettingsClient({
                       style={{ backgroundColor: "#F97316" }}
                     >
                       {t("popular")}
+                    </span>
+                  )}
+                  {/* Coming soon badge */}
+                  {isComingSoon && (
+                    <span
+                      className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider text-white px-2.5 py-0.5 rounded-full whitespace-nowrap"
+                      style={{ backgroundColor: "#6B7280" }}
+                    >
+                      {t("coming_soon")}
                     </span>
                   )}
 
@@ -410,19 +422,21 @@ export default function SettingsClient({
                       className="text-[11px] mb-2"
                       style={{ color: isPro ? "#94b8d4" : "#6B7280" }}
                     >
-                      {t(`plan_${p.key}_desc` as Parameters<typeof t>[0])}
+                      {isComingSoon ? t("coming_soon_desc") : t(`plan_${p.key}_desc` as Parameters<typeof t>[0])}
                     </p>
-                    <div className="flex items-baseline gap-1">
-                      <span
-                        className="text-[24px] font-bold leading-none"
-                        style={{ color: isPro ? "#fff" : "#111827" }}
-                      >
-                        {p.price}
-                      </span>
-                      <span style={{ color: isPro ? "#6a9abf" : "#9CA3AF" }} className="text-[11px]">
-                        {t("per_month")}
-                      </span>
-                    </div>
+                    {!isComingSoon && (
+                      <div className="flex items-baseline gap-1">
+                        <span
+                          className="text-[24px] font-bold leading-none"
+                          style={{ color: isPro ? "#fff" : "#111827" }}
+                        >
+                          {p.price}
+                        </span>
+                        <span style={{ color: isPro ? "#6a9abf" : "#9CA3AF" }} className="text-[11px]">
+                          {t("per_month")}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Features */}
@@ -444,7 +458,11 @@ export default function SettingsClient({
                   </ul>
 
                   {/* CTA */}
-                  {isCurrent ? (
+                  {isComingSoon ? (
+                    <div className="w-full py-2 text-[11px] font-semibold rounded-lg text-center bg-[#F3F4F6] text-[#9CA3AF] cursor-default select-none">
+                      {t("coming_soon")}
+                    </div>
+                  ) : isCurrent ? (
                     <div
                       className="w-full py-2 text-[11px] font-semibold rounded-lg text-center border"
                       style={{ color: p.accent, borderColor: p.accent + "40", backgroundColor: p.accent + "10" }}

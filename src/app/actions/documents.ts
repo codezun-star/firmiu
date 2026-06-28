@@ -283,73 +283,93 @@ export interface FirmanteInput {
   campo_alto: number;
 }
 
-export async function uploadDocumentMultiAction(
-  formData: FormData
-): Promise<{ errorKey: string | null; success: boolean }> {
-  const pdfFile = formData.get("pdf") as File | null;
-  const locale   = (formData.get("locale") as string) ?? "es";
-  const firmantesJson = (formData.get("firmantes") as string) ?? "[]";
+/** Per-plan cap on how many documents can be uploaded in a SINGLE batch. The
+ *  monthly quota (suscripciones.limite_documentos) still applies on top of this. */
+const BATCH_LIMITS: Record<string, number> = { free: 1, starter: 5, pro: 20, business: 50 };
 
-  let firmantes: FirmanteInput[];
-  try {
-    firmantes = JSON.parse(firmantesJson) as FirmanteInput[];
-  } catch {
-    return { errorKey: "signers_data_invalid", success: false };
-  }
-
-  if (!pdfFile || pdfFile.size === 0) return { errorKey: "pdf_required", success: false };
-  if (!pdfFile.name.toLowerCase().endsWith(".pdf") || pdfFile.type !== "application/pdf")
-    return { errorKey: "pdf_invalid", success: false };
-  if (pdfFile.size > 20 * 1024 * 1024) return { errorKey: "pdf_too_large", success: false };
-  if (!(await hasPdfMagicBytes(pdfFile))) return { errorKey: "pdf_invalid", success: false };
-  if (!firmantes || firmantes.length === 0) return { errorKey: "min_signers", success: false };
-  if (firmantes.length > 5) return { errorKey: "signers_data_invalid", success: false };
-
+/** Validate one document's file + signers. Returns an errorKey, or null if OK. */
+async function validateDocInput(
+  pdfFile: File | null,
+  firmantes: FirmanteInput[] | null | undefined
+): Promise<string | null> {
+  if (!pdfFile || pdfFile.size === 0) return "pdf_required";
+  if (!pdfFile.name.toLowerCase().endsWith(".pdf") || pdfFile.type !== "application/pdf") return "pdf_invalid";
+  if (pdfFile.size > 20 * 1024 * 1024) return "pdf_too_large";
+  if (!(await hasPdfMagicBytes(pdfFile))) return "pdf_invalid";
+  if (!firmantes || firmantes.length === 0) return "min_signers";
+  if (firmantes.length > 5) return "signers_data_invalid";
   for (const f of firmantes) {
-    if (!sanitizeText(f.nombre, 100)) return { errorKey: "name_required", success: false };
-    if (!isValidEmail(f.correo.trim().toLowerCase())) return { errorKey: "email_invalid", success: false };
+    if (!sanitizeText(f.nombre, 100)) return "name_required";
+    if (!isValidEmail(f.correo.trim().toLowerCase())) return "email_invalid";
   }
   const correos = firmantes.map(f => f.correo.trim().toLowerCase());
-  if (new Set(correos).size !== correos.length) return { errorKey: "email_duplicate", success: false };
+  if (new Set(correos).size !== correos.length) return "email_duplicate";
+  return null;
+}
 
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect(`${getPrefix(locale)}/login`);
-
-  const admin = createAdminClient();
-
-  // Plan limit check (same as single-signer)
-  let planLimit = 3;
-  let subId: string | null = null;
-  let subDocsMes = 0;
-
+/**
+ * Resolve the caller's plan limits in one place (shared by single + batch upload).
+ * `remaining` = how many more documents fit in the monthly quota right now.
+ * `batchLimit` = max documents allowed in a single upload for the plan.
+ */
+async function resolvePlanLimits(
+  admin: ReturnType<typeof createAdminClient>,
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<{ planKey: string; subId: string | null; remaining: number; batchLimit: number }> {
   const { data: sub, error: subError } = await admin
     .from("suscripciones")
-    .select("id, documentos_mes, limite_documentos, estado, periodo_fin")
-    .eq("owner_id", user.id)
+    .select("id, plan, documentos_mes, limite_documentos, estado, periodo_fin")
+    .eq("owner_id", userId)
     .maybeSingle();
 
   // A 'canceling' sub keeps paid access only until periodo_fin — guards revenue
   // if Paddle's subscription.canceled webhook is ever missed at period end.
   const cancelingValid = sub?.estado === "canceling" && (!sub.periodo_fin || new Date(sub.periodo_fin as string) > new Date());
   if (!subError && sub && (sub.estado === "active" || cancelingValid)) {
-    planLimit  = sub.limite_documentos;
-    subId      = sub.id;
-    subDocsMes = sub.documentos_mes ?? 0;
-    if (subDocsMes >= planLimit) return { errorKey: "plan_limit_reached", success: false };
-  } else {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const { count } = await supabase
-      .from("documentos")
-      .select("id", { count: "exact", head: true })
-      .gte("creado_en", startOfMonth.toISOString());
-    if ((count ?? 0) >= planLimit) return { errorKey: "plan_limit_reached", success: false };
+    const planKey = (sub.plan as string) ?? "free";
+    const limit = (sub.limite_documentos as number) ?? 3;
+    const used = (sub.documentos_mes as number) ?? 0;
+    return {
+      planKey,
+      subId: sub.id as string,
+      remaining: Math.max(0, limit - used),
+      batchLimit: BATCH_LIMITS[planKey] ?? 1,
+    };
   }
 
+  // Free plan — count actual docs from this calendar month (limit 3)
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from("documentos")
+    .select("id", { count: "exact", head: true })
+    .gte("creado_en", startOfMonth.toISOString());
+  return {
+    planKey: "free",
+    subId: null,
+    remaining: Math.max(0, 3 - (count ?? 0)),
+    batchLimit: BATCH_LIMITS.free,
+  };
+}
+
+/**
+ * Create ONE document: upload the PDF, insert the documento row + N firmantes,
+ * and email each signer. Does NOT check plan limits or bump the counter — the
+ * caller owns those (so batch uploads count correctly). Returns true on success.
+ */
+async function createOneDocument(
+  admin: ReturnType<typeof createAdminClient>,
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  appUrl: string,
+  ownerName: string,
+  pdfFile: File,
+  firmantes: FirmanteInput[]
+): Promise<boolean> {
   const docId = crypto.randomUUID();
-  const storagePath = `${user.id}/${docId}.pdf`;
+  const storagePath = `${userId}/${docId}.pdf`;
   const titulo = pdfFile.name.replace(/\.pdf$/i, "");
   const primerFirmante = firmantes[0];
 
@@ -358,14 +378,14 @@ export async function uploadDocumentMultiAction(
   const { error: uploadError } = await admin.storage
     .from("pdfs-originales")
     .upload(storagePath, pdfBuffer, { contentType: "application/pdf", upsert: false });
-  if (uploadError) return { errorKey: "upload_failed", success: false };
+  if (uploadError) return false;
 
   // Create documento row (backward compat: use first signer for legacy fields)
   const { error: docError } = await supabase
     .from("documentos")
     .insert({
       id: docId,
-      owner_id: user.id,
+      owner_id: userId,
       titulo,
       nombre_destinatario: sanitizeText(primerFirmante.nombre, 100),
       correo_destinatario: primerFirmante.correo.trim().toLowerCase(),
@@ -374,12 +394,10 @@ export async function uploadDocumentMultiAction(
 
   if (docError) {
     await admin.storage.from("pdfs-originales").remove([storagePath]);
-    return { errorKey: "generic", success: false };
+    return false;
   }
 
   // Create firmantes rows + send emails in parallel
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
   const tituloEscaped = escapeHtml(titulo);
   const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -434,15 +452,110 @@ export async function uploadDocumentMultiAction(
     }
   }));
 
-  if (subId) {
-    await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
+  return true;
+}
+
+export async function uploadDocumentMultiAction(
+  formData: FormData
+): Promise<{ errorKey: string | null; success: boolean }> {
+  const locale = (formData.get("locale") as string) ?? "es";
+  const pdfFile = formData.get("pdf") as File | null;
+
+  let firmantes: FirmanteInput[];
+  try {
+    firmantes = JSON.parse((formData.get("firmantes") as string) ?? "[]") as FirmanteInput[];
+  } catch {
+    return { errorKey: "signers_data_invalid", success: false };
   }
+
+  const validationError = await validateDocInput(pdfFile, firmantes);
+  if (validationError) return { errorKey: validationError, success: false };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`${getPrefix(locale)}/login`);
+
+  const admin = createAdminClient();
+  const { subId, remaining } = await resolvePlanLimits(admin, supabase, user.id);
+  if (remaining <= 0) return { errorKey: "plan_limit_reached", success: false };
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
+
+  const ok = await createOneDocument(admin, supabase, user.id, appUrl, ownerName, pdfFile as File, firmantes);
+  if (!ok) return { errorKey: "upload_failed", success: false };
+
+  if (subId) await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/documentos");
   revalidatePath("/en/dashboard");
   revalidatePath("/en/dashboard/documentos");
   return { errorKey: null, success: true };
+}
+
+/**
+ * Batch upload: several independent documents in one go, each with its own PDF,
+ * signers and positions. FormData carries `count` plus `pdf_{i}` / `firmantes_{i}`.
+ * Gated by the plan's batch limit AND the remaining monthly quota.
+ */
+export async function uploadDocumentsBatchAction(
+  formData: FormData
+): Promise<{ errorKey: string | null; success: boolean; created?: number }> {
+  const locale = (formData.get("locale") as string) ?? "es";
+  const count = Math.max(0, parseInt((formData.get("count") as string) ?? "0", 10) || 0);
+  if (count === 0) return { errorKey: "pdf_required", success: false };
+
+  // Collect every document from the FormData
+  const docs: { pdfFile: File | null; firmantes: FirmanteInput[] }[] = [];
+  for (let i = 0; i < count; i++) {
+    const pdfFile = formData.get(`pdf_${i}`) as File | null;
+    let firmantes: FirmanteInput[];
+    try {
+      firmantes = JSON.parse((formData.get(`firmantes_${i}`) as string) ?? "[]") as FirmanteInput[];
+    } catch {
+      return { errorKey: "signers_data_invalid", success: false };
+    }
+    docs.push({ pdfFile, firmantes });
+  }
+
+  // Validate ALL documents up front — nothing is created if any one is invalid
+  for (const d of docs) {
+    const err = await validateDocInput(d.pdfFile, d.firmantes);
+    if (err) return { errorKey: err, success: false };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`${getPrefix(locale)}/login`);
+
+  const admin = createAdminClient();
+  const { subId, remaining, batchLimit } = await resolvePlanLimits(admin, supabase, user.id);
+
+  if (remaining <= 0) return { errorKey: "plan_limit_reached", success: false };
+  if (docs.length > batchLimit) return { errorKey: "batch_limit_reached", success: false };
+  if (docs.length > remaining) return { errorKey: "plan_limit_reached", success: false };
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
+
+  // Create sequentially so the monthly counter increments cleanly per document
+  let created = 0;
+  for (const d of docs) {
+    const ok = await createOneDocument(admin, supabase, user.id, appUrl, ownerName, d.pdfFile as File, d.firmantes);
+    if (ok) {
+      created++;
+      if (subId) await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
+    }
+  }
+
+  if (created === 0) return { errorKey: "upload_failed", success: false };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/documentos");
+  revalidatePath("/en/dashboard");
+  revalidatePath("/en/dashboard/documentos");
+  return { errorKey: null, success: true, created };
 }
 
 // Reenviar email a firmantes pendientes de un documento multi-firmante

@@ -1,7 +1,11 @@
 import { useTranslations } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import Link from "next/link";
 import NuevoForm from "./NuevoForm";
+import { createClient } from "@/lib/supabase/server";
+
+// Per-plan cap on documents per batch (mirrors BATCH_LIMITS in actions/documents.ts).
+const BATCH_LIMITS: Record<string, number> = { free: 1, starter: 5, pro: 20, business: 50 };
 
 interface NuevoPageProps {
   params: { locale: string };
@@ -85,11 +89,43 @@ function WhatNextCard() {
   );
 }
 
-export default function NuevoPage({ params: { locale }, searchParams }: NuevoPageProps) {
+export default async function NuevoPage({ params: { locale }, searchParams }: NuevoPageProps) {
   setRequestLocale(locale);
 
-  const t = useTranslations("nuevo");
+  const t = await getTranslations("nuevo");
   const prefix = locale === "es" ? "" : `/${locale}`;
+
+  // ── How many documents can this user upload in one batch right now? ──
+  // = min(plan batch cap, remaining monthly quota). Server re-validates on submit.
+  let batchLimit = 1;
+  let monthlyRemaining = 3;
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: sub } = await supabase
+      .from("suscripciones")
+      .select("plan, documentos_mes, limite_documentos, estado, periodo_fin")
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    const cancelingValid =
+      sub?.estado === "canceling" && (!sub.periodo_fin || new Date(sub.periodo_fin as string) > new Date());
+    if (sub && (sub.estado === "active" || cancelingValid)) {
+      const planKey = (sub.plan as string) ?? "free";
+      batchLimit = BATCH_LIMITS[planKey] ?? 1;
+      monthlyRemaining = Math.max(0, ((sub.limite_documentos as number) ?? 3) - ((sub.documentos_mes as number) ?? 0));
+    } else {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("documentos")
+        .select("id", { count: "exact", head: true })
+        .gte("creado_en", startOfMonth.toISOString());
+      batchLimit = BATCH_LIMITS.free;
+      monthlyRemaining = Math.max(0, 3 - (count ?? 0));
+    }
+  }
+  const maxBatch = Math.min(batchLimit, Math.max(1, monthlyRemaining));
 
   return (
     <div className="p-5 md:p-6">
@@ -111,11 +147,14 @@ export default function NuevoPage({ params: { locale }, searchParams }: NuevoPag
       </div>
 
       {/* ── Two-column layout ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start max-w-4xl mx-auto">
+      {/* max-w-6xl (no 4xl) para que el preview del PDF al posicionar firmas tenga
+          ancho cómodo en PC; en móvil sigue a una columna full-width. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start max-w-6xl mx-auto">
         <NuevoForm
           locale={locale}
           defaultNombre={searchParams.nombre ?? ""}
           defaultCorreo={searchParams.correo ?? ""}
+          maxBatch={maxBatch}
         />
         <WhatNextCard />
       </div>

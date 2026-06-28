@@ -158,6 +158,8 @@
       "cta_free": "Start free",
       "cta_paid": "Get started",
       "popular": "Most popular",
+      "coming_soon": "Coming soon",
+      "coming_soon_desc": "This plan will be available soon.",
       "included_title": "Included in all plans",
       "included_legal": "Legally valid signature",
       "included_ip": "IP, device and location tracking",
@@ -433,6 +435,14 @@
     "security_note": "100% legal · Encrypted storage · Audit trail",
     "modal_title": "Document sent!",
     "modal_subtitle": "The signing link was sent to {name}. We'll notify you when they sign.",
+    "modal_subtitle_batch": "{count} documents were sent to their signers. We'll notify you when they sign.",
+    "add_document": "Add another document",
+    "send_all": "Send all ({n})",
+    "batch_title": "Documents in this batch",
+    "document_n": "Document {n}",
+    "remove_document": "Remove",
+    "signers_count": "{n} signer(s)",
+    "batch_hint": "Your plan allows sending up to {max} documents at once.",
     "errors": {
       "pdf_required": "Please select a PDF file.",
       "pdf_invalid": "The file must be a valid PDF.",
@@ -445,7 +455,8 @@
       "min_signers": "Add at least one signer.",
       "signers_data_invalid": "Invalid signer data.",
       "position_required": "Position the signature for all signers in the PDF.",
-      "email_duplicate": "This email has already been added as a signer."
+      "email_duplicate": "This email has already been added as a signer.",
+      "batch_limit_reached": "You've reached the maximum number of documents per batch for your plan."
     }
   },
   "sign": {
@@ -493,7 +504,9 @@
     "modal_title": "Signature complete!",
     "modal_subtitle": "Your document was signed and recorded successfully. Thank you.",
     "signing": "Signing...",
-    "pdf_error": "Could not load the document."
+    "pdf_error": "Could not load the document.",
+    "pdf_loading": "Loading document…",
+    "open_pdf": "Open document"
   },
   "sign_success": {
     "title": "Document signed!",
@@ -593,6 +606,7 @@
     "upgrade": "Choose your plan",
     "upgrade_desc": "More documents, extended storage, and advanced features.",
     "coming_soon": "Coming soon",
+    "coming_soon_desc": "This plan will be available soon.",
     "popular": "Most popular",
     "per_month": "/mo",
     "plan_limit_free": "3 docs / mo",
