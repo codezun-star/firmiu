@@ -744,6 +744,10 @@
   "pending_plan": {
     "loading": "Preparing your subscription..."
   },
+  "banner": {
+    "message": "We're making improvements to Firmiu. You might notice brief interruptions for a few minutes.",
+    "dismiss": "Dismiss"
+  },
   "about": {
     "meta_description": "Meet Firmiu: the digital signature tool designed for accountants, lawyers, and real estate professionals in Latin America. Simple, secure, and legally valid in Mexico, Colombia, Argentina, Chile, Peru and more.",
     "meta_keywords": "about firmiu, digital signature company latin america, firmiu mission, electronic signature latam, firmiu team, digital signature Mexico, digital signature Colombia, digital signature Argentina, digital signature Chile, digital signature Peru, digital signature Costa Rica",

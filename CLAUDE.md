@@ -67,6 +67,11 @@ PADDLE_WEBHOOK_SECRET=...   # OBLIGATORIO en producción (el webhook rechaza si 
 
 # Cron
 CRON_SECRET=...   # Vercel lo inyecta automáticamente como Authorization: Bearer
+
+# Mantenimiento (opcional; ausente = apagado)
+MAINTENANCE_MODE=false                 # "true" = muestra página de mantenimiento (503) a todos (takedown total)
+MAINTENANCE_BYPASS=...                 # secreto: visita /?bypass=<secreto> para saltarte el muro (cookie 24h)
+NEXT_PUBLIC_MAINTENANCE_BANNER=false   # banner NO bloqueante (default): "true"=mensaje i18n; cualquier otro texto=ese mensaje literal
 ```
 
 > **Regla crítica**: la variable es `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, NO `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Supabase la renombró. Nunca usar el nombre viejo.
@@ -604,6 +609,8 @@ npm run lint     # ESLint
 - **setRequestLocale**: todas las páginas bajo `[locale]` deben llamarlo al inicio.
 - **getTranslations vs useTranslations**: `getTranslations` (async) en Server Components; `useTranslations` en Client Components.
 - **Middleware**: combina Supabase + protección de rutas + next-intl en un solo archivo. No separar.
+- **Modo mantenimiento (takedown)**: gate al inicio de `middleware.ts` (`isMaintenanceOn()` lee `MAINTENANCE_MODE === "true"`). Devuelve `MAINTENANCE_HTML` con **503 + Retry-After** a todos, salvo: rutas excluidas por el matcher (webhooks Paddle, crons, estáticos → siguen vivos) y quien tenga el bypass. **Bypass**: `/?bypass=<MAINTENANCE_BYPASS>` deja una cookie 24h. Para toggle INSTANTÁNEO (sin redeploy) migrar el flag a Vercel Edge Config (ver comentario en `isMaintenanceOn`). Activar = setear `MAINTENANCE_MODE=true` en Vercel + redeploy. **Solo para cambios genuinamente rompedores** (migración incompatible, migración de datos).
+- **Banner de mantenimiento (no bloqueante, default recomendado)**: `MaintenanceBanner.tsx` (client), barra naranja descartable EN EL FLUJO del contenido (no fixed, para no chocar con el header/sidebar fijos del dashboard ni el navbar sticky público). Se monta DOS veces: en `[locale]/layout.tsx` (`variant="global"`, oculto en `/dashboard`) y dentro del `<main>` del dashboard (`variant="dashboard"`). Toggle con `NEXT_PUBLIC_MAINTENANCE_BANNER` (inlined → redeploy): `"true"`=mensaje i18n `banner.message`; cualquier otro texto=ese literal. Descartar guarda en `sessionStorage` (re-aparece si cambias el mensaje). Úsalo para el 95% de los cambios; el 503 solo para lo rompedor.
 - **Variable de entorno Supabase**: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (nunca `ANON_KEY`).
 - **Prefijo de locale**: español sin prefijo; inglés con `/en`. Helper: `const prefix = locale === "es" ? "" : "/en"`.
 - **`addSignaturePage()`** en `sign.ts`: agrega página nueva con las mismas dimensiones que la primera página del PDF original. NUNCA dibujar sobre páginas existentes.

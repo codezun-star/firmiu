@@ -3,6 +3,7 @@ import { setRequestLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import DashboardNav from "@/components/DashboardNav";
 import PendingPlanChecker from "@/components/PendingPlanChecker";
+import MaintenanceBanner from "@/components/MaintenanceBanner";
 
 export const metadata: Metadata = {
   title: "Panel — Firmiu",
@@ -52,6 +53,7 @@ export default async function DashboardLayout({
       <DashboardNav locale={locale} userName={rawName} userInitials={userInitials} currentPlan={currentPlan} />
       <PendingPlanChecker currentPlan={currentPlan} />
       <main className="md:ml-[200px] pt-[52px] min-h-screen">
+        <MaintenanceBanner variant="dashboard" />
         {children}
       </main>
     </div>

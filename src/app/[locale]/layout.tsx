@@ -6,6 +6,7 @@ import { locales } from "@/i18n";
 import type { Locale } from "@/i18n";
 import Toaster from "@/components/Toaster";
 import ConsentBanner from "@/components/ConsentBanner";
+import MaintenanceBanner from "@/components/MaintenanceBanner";
 
 // Google Consent Mode v2 — default everything to "denied" before gtag.js
 // loads, so no analytics/ads cookies are set until the visitor opts in.
@@ -55,6 +56,7 @@ export default async function LocaleLayout({
       </head>
       <body suppressHydrationWarning>
         <NextIntlClientProvider messages={messages}>
+          <MaintenanceBanner />
           {children}
           <Toaster />
           <ConsentBanner />

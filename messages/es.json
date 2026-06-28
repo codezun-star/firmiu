@@ -744,6 +744,10 @@
   "pending_plan": {
     "loading": "Preparando tu suscripción..."
   },
+  "banner": {
+    "message": "Estamos haciendo mejoras en Firmiu. Podrías notar pequeñas interrupciones por unos minutos.",
+    "dismiss": "Cerrar"
+  },
   "about": {
     "meta_description": "Conoce Firmiu: la herramienta de firma digital diseñada para contadores, abogados e inmobiliarias en Latinoamérica. Simple, segura y con validez legal en México, Colombia, Argentina, Chile, Perú y más.",
     "meta_keywords": "quiénes somos firmiu, empresa firma digital latinoamerica, misión firmiu, firma electrónica latam, equipo firmiu, firma digital México, firma digital Colombia, firma digital Argentina, firma digital Chile, firma digital Perú, firma digital Costa Rica",
