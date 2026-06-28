@@ -34,17 +34,25 @@ function makeEmptyFirmante(): FirmanteLocal {
   return { nombre: "", correo: "", posicion: null };
 }
 
+interface Contact {
+  id: string;
+  nombre: string;
+  correo: string;
+}
+
 interface NuevoFormProps {
   locale: string;
   defaultNombre?: string;
   defaultCorreo?: string;
   /** Max documents this user can send in one batch (plan cap ∩ monthly quota). */
   maxBatch?: number;
+  /** Saved contacts to quick-fill signers. */
+  contactos?: Contact[];
   /** "¿Qué sucede después?" sidebar — shown beside steps 0 and 2 (not positioning). */
   whatNext?: ReactNode;
 }
 
-export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = "", maxBatch = 1, whatNext }: NuevoFormProps) {
+export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = "", maxBatch = 1, contactos = [], whatNext }: NuevoFormProps) {
   const t = useTranslations("nuevo");
   const prefix = locale === "es" ? "" : `/${locale}`;
   const allowMulti = maxBatch > 1;
@@ -68,6 +76,9 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
   ]);
   const [modo, setModo] = useState<Modo>("paralelo");
   const [activeSigner, setActiveSigner] = useState(0);
+  // Contact picker (which signer card has it open + search query)
+  const [contactPickerFor, setContactPickerFor] = useState<number | null>(null);
+  const [contactQuery, setContactQuery] = useState("");
 
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -159,6 +170,18 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
   function updateFirmante(i: number, field: "nombre" | "correo", value: string) {
     setFirmantes(prev => prev.map((f, idx) => idx === i ? { ...f, [field]: value } : f));
   }
+
+  function pickContact(i: number, c: Contact) {
+    setFirmantes(prev => prev.map((f, idx) => idx === i ? { ...f, nombre: c.nombre, correo: c.correo } : f));
+    setContactPickerFor(null);
+    setContactQuery("");
+  }
+
+  const filteredContacts = (() => {
+    const q = contactQuery.trim().toLowerCase();
+    if (!q) return contactos;
+    return contactos.filter(c => c.nombre.toLowerCase().includes(q) || c.correo.toLowerCase().includes(q));
+  })();
 
   // Valida el documento ACTUAL (archivo + firmantes + posiciones). errorKey | null.
   function validateCurrent(): string | null {
@@ -384,13 +407,6 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
           positionActive={(n) => t("position_active", { n })}
           positionPlaced={(n) => t("position_placed", { n })}
           positionNotPlaced={t("position_not_placed")}
-          quick={{
-            label: t("position_quick"),
-            bl: t("pos_bottom_left"),
-            bc: t("pos_bottom_center"),
-            br: t("pos_bottom_right"),
-            drag: t("position_drag_hint"),
-          }}
         />
       </div>
       <div className="flex gap-3 max-w-2xl mx-auto">
@@ -436,8 +452,8 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
         <div className="space-y-4">
           {firmantes.map((f, i) => (
             <div key={i} className="rounded-[9px] border border-[#E5E7EB] p-3.5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <span className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
                     style={{ background: SIGNER_COLORS[i % SIGNER_COLORS.length] }}>
                     {i + 1}
@@ -449,13 +465,51 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
                     )}
                   </span>
                 </div>
-                {firmantes.length > 1 && (
-                  <button type="button" onClick={() => removeSigner(i)}
-                    className="text-xs text-[#9CA3AF] hover:text-red-500 transition-colors">
-                    {t("remove_signer")}
-                  </button>
-                )}
+                <div className="flex items-center gap-3 shrink-0">
+                  {contactos.length > 0 && (
+                    <button type="button"
+                      onClick={() => { setContactPickerFor(contactPickerFor === i ? null : i); setContactQuery(""); }}
+                      className="text-xs font-medium text-[#1a3c5e] hover:text-[#F97316] inline-flex items-center gap-1 transition-colors">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M9 12a4 4 0 100-8 4 4 0 000 8zm0 0c-2.761 0-5 2.239-5 5v2h10v-2c0-2.761-2.239-5-5-5z" />
+                      </svg>
+                      {t("from_contacts")}
+                    </button>
+                  )}
+                  {firmantes.length > 1 && (
+                    <button type="button" onClick={() => removeSigner(i)}
+                      className="text-xs text-[#9CA3AF] hover:text-red-500 transition-colors">
+                      {t("remove_signer")}
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Contact picker */}
+              {contactPickerFor === i && (
+                <div className="rounded-[9px] border border-[#E5E7EB] bg-[#F9FAFB] p-2.5 space-y-2">
+                  <input
+                    type="text"
+                    value={contactQuery}
+                    onChange={e => setContactQuery(e.target.value)}
+                    placeholder={t("contacts_search")}
+                    autoFocus
+                    className="w-full px-2.5 py-2 rounded-[7px] border border-[#E5E7EB] text-[13px] bg-white text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10"
+                  />
+                  <div className="max-h-44 overflow-y-auto space-y-1">
+                    {filteredContacts.length === 0 ? (
+                      <p className="text-[12px] text-[#9CA3AF] text-center py-3">{t("contacts_none")}</p>
+                    ) : filteredContacts.map(c => (
+                      <button key={c.id} type="button" onClick={() => pickContact(i, c)}
+                        className="w-full text-left px-2.5 py-2 rounded-[7px] hover:bg-white border border-transparent hover:border-[#E5E7EB] transition-colors">
+                        <p className="text-[13px] font-medium text-[#374151] truncate">{c.nombre}</p>
+                        <p className="text-[11px] text-[#9CA3AF] truncate">{c.correo}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-[#6B7280] mb-1.5">
                   {t("recipient_name")}

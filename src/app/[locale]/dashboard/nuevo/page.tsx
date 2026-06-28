@@ -127,6 +127,17 @@ export default async function NuevoPage({ params: { locale }, searchParams }: Nu
   }
   const maxBatch = Math.min(batchLimit, Math.max(1, monthlyRemaining));
 
+  // Saved contacts → quick-fill signers
+  const { data: contactosData } = user
+    ? await supabase
+        .from("contactos")
+        .select("id, nombre, correo")
+        .eq("owner_id", user.id)
+        .eq("oculto", false)
+        .order("nombre", { ascending: true })
+    : { data: [] };
+  const contactos = (contactosData ?? []).map(c => ({ id: c.id as string, nombre: c.nombre as string, correo: c.correo as string }));
+
   return (
     <div className="p-5 md:p-6">
 
@@ -153,6 +164,7 @@ export default async function NuevoPage({ params: { locale }, searchParams }: Nu
         defaultNombre={searchParams.nombre ?? ""}
         defaultCorreo={searchParams.correo ?? ""}
         maxBatch={maxBatch}
+        contactos={contactos}
         whatNext={<WhatNextCard />}
       />
     </div>

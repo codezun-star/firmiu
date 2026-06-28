@@ -39,8 +39,6 @@ interface Props {
   positionActive: (n: number) => string;
   positionPlaced: (n: number) => string;
   positionNotPlaced: string;
-  // Quick-position presets + drag hint (labels)
-  quick: { label: string; bl: string; bc: string; br: string; drag: string };
 }
 
 export default function PdfPosicionador({
@@ -57,7 +55,6 @@ export default function PdfPosicionador({
   positionActive,
   positionPlaced,
   positionNotPlaced,
-  quick,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
@@ -65,11 +62,15 @@ export default function PdfPosicionador({
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [pdfFailed, setPdfFailed] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  const ZOOM_MIN = 0.6, ZOOM_MAX = 2.5, ZOOM_STEP = 0.2;
   // Display size of the page (CSS px). Internal canvas resolution is this × DPR
   // for a crisp render on high-DPI screens (fixes the blurry preview).
   const [disp, setDisp] = useState<{ w: number; h: number } | null>(null);
   const pdfRef = useRef<{ getPage: (n: number) => Promise<unknown> } | null>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
+  const hasRenderedRef = useRef(false);
 
   const renderPage = useCallback(async (pageNum: number) => {
     if (!pdfRef.current || !canvasRef.current) return;
@@ -77,14 +78,18 @@ export default function PdfPosicionador({
     // ("multiple render()") and can leave the preview blank/garbled — that was the
     // intermittent "no se previsualiza bien" bug. Cancelling serializes renders.
     if (renderTaskRef.current) { try { renderTaskRef.current.cancel(); } catch { /* ignore */ } renderTaskRef.current = null; }
-    setLoading(true);
+    // Spinner only on first paint — re-renders (zoom, resize, page nav) update in
+    // place without flashing the overlay.
+    if (!hasRenderedRef.current) setLoading(true);
     try {
       const page = await pdfRef.current.getPage(pageNum) as {
         getViewport: (o: { scale: number }) => { width: number; height: number };
         render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void>; cancel: () => void };
       };
       const pane = paneRef.current;
-      const paneW = (pane?.clientWidth ?? 0) || 640;
+      // -32 accounts for the scroll container's padding so the canvas fits without
+      // an unwanted horizontal scrollbar at zoom 1.
+      const paneW = Math.max(280, (pane?.clientWidth ?? 0) - 32);
       const unscaled = page.getViewport({ scale: 1 });
       const aspect = unscaled.height / unscaled.width;
 
@@ -95,7 +100,11 @@ export default function PdfPosicionador({
       let displayH = displayW * aspect;
       if (displayH > maxH) { displayH = maxH; displayW = displayH / aspect; }
 
-      const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2.5);
+      // Apply user zoom on top of the base fit. >1 overflows the pane (scrollable).
+      displayW *= zoomRef.current;
+      displayH *= zoomRef.current;
+
+      const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
       const viewport = page.getViewport({ scale: (displayW / unscaled.width) * dpr });
       const canvas = canvasRef.current;
       canvas.width = Math.round(viewport.width);
@@ -107,6 +116,7 @@ export default function PdfPosicionador({
       renderTaskRef.current = task;
       await task.promise;
       renderTaskRef.current = null;
+      hasRenderedRef.current = true;
     } catch (err) {
       if ((err as { name?: string })?.name !== "RenderingCancelledException") {
         console.error("[PdfPosicionador] page render failed:", err);
@@ -181,6 +191,13 @@ export default function PdfPosicionador({
     if (pdfRef.current && !pdfFailed) renderPage(currentPage);
   }, [currentPage, renderPage, pdfFailed]);
 
+  // Re-render (not reload) when the zoom level changes.
+  useEffect(() => {
+    zoomRef.current = zoom;
+    if (pdfRef.current && !pdfFailed) renderPage(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom]);
+
   // Re-render on container resize (window resize / layout changes) so the
   // preview stays crisp and correctly sized.
   useEffect(() => {
@@ -249,21 +266,6 @@ export default function PdfPosicionador({
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   }
 
-  // ── One-click presets at common signature spots (bottom of the page) ──
-  function placePreset(corner: "bl" | "bc" | "br") {
-    const margin = 0.06;
-    let campo_x = margin;
-    if (corner === "bc") campo_x = 0.5 - FIELD_W / 2;
-    else if (corner === "br") campo_x = 1 - FIELD_W - margin;
-    onPlace(activeSigner, {
-      pagina: currentPage,
-      campo_x: Math.max(0, Math.min(1 - FIELD_W, campo_x)),
-      campo_y: Math.max(0, Math.min(1 - FIELD_H, 0.86)),
-      campo_ancho: FIELD_W,
-      campo_alto: FIELD_H,
-    });
-  }
-
   function fieldStyle(pos: PosicionFirma, index: number) {
     if (pos.pagina !== currentPage) return null;
     const color = SIGNER_COLORS[index % SIGNER_COLORS.length];
@@ -302,7 +304,21 @@ export default function PdfPosicionador({
     <div className="flex flex-col lg:flex-row gap-4 items-start">
       {/* ── PDF pane (large) ── */}
       <div ref={paneRef} className="flex-1 min-w-0 w-full">
-        <div className="relative flex justify-center bg-[#F1F3F5] rounded-[10px] border border-[#E5E7EB] p-3 sm:p-4">
+        {/* Zoom toolbar */}
+        <div className="flex items-center justify-end gap-1.5 mb-2">
+          <button type="button" aria-label="Zoom out" disabled={zoom <= ZOOM_MIN}
+            onClick={() => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+            className="w-7 h-7 rounded-[7px] border border-[#E5E7EB] text-[#374151] flex items-center justify-center disabled:opacity-40 hover:bg-[#F3F4F6] transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={2} d="M5 12h14" /></svg>
+          </button>
+          <span className="text-[12px] text-[#6B7280] tabular-nums w-10 text-center">{Math.round(zoom * 100)}%</span>
+          <button type="button" aria-label="Zoom in" disabled={zoom >= ZOOM_MAX}
+            onClick={() => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+            className="w-7 h-7 rounded-[7px] border border-[#E5E7EB] text-[#374151] flex items-center justify-center disabled:opacity-40 hover:bg-[#F3F4F6] transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={2} d="M12 5v14M5 12h14" /></svg>
+          </button>
+        </div>
+        <div className="relative max-h-[80vh] overflow-auto bg-[#F1F3F5] rounded-[10px] border border-[#E5E7EB] p-3 sm:p-4">
           {loading && !pdfFailed && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 rounded-[10px]">
               <div className="w-6 h-6 border-2 border-[#1a3c5e] border-t-transparent rounded-full animate-spin" />
@@ -331,7 +347,7 @@ export default function PdfPosicionador({
             </div>
           ) : (
             <div
-              className="relative shadow-sm rounded-[2px]"
+              className="relative shadow-sm rounded-[2px] mx-auto"
               style={disp ? { width: disp.w, height: disp.h } : { width: "100%", aspectRatio: "1 / 1.414" }}
             >
               <canvas
@@ -365,20 +381,6 @@ export default function PdfPosicionador({
           style={{ background: `${activeColor}15`, color: activeColor, border: `1px solid ${activeColor}30` }}
         >
           {positionActive(activeSigner + 1)}
-        </div>
-
-        {/* Quick-position presets */}
-        <div className="rounded-[9px] border border-[#E5E7EB] bg-white p-2.5">
-          <p className="text-[11px] font-medium text-[#6B7280] mb-1.5">{quick.label}</p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {([["bl", quick.bl], ["bc", quick.bc], ["br", quick.br]] as const).map(([c, label]) => (
-              <button key={c} type="button" onClick={() => placePreset(c)}
-                className="text-[11px] font-medium text-[#374151] border border-[#E5E7EB] rounded-[7px] py-1.5 hover:border-[#1a3c5e] hover:text-[#1a3c5e] transition-colors">
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-[#9CA3AF] mt-1.5">{quick.drag}</p>
         </div>
 
         {/* Signer tabs */}
