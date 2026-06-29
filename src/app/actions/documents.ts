@@ -22,14 +22,26 @@ async function hasPdfMagicBytes(file: File): Promise<boolean> {
 
 // ── Multi-signer upload ──────────────────────────────────────────────────────
 
-export interface FirmanteInput {
-  nombre: string;
-  correo: string;
+export interface CampoFirma {
   pagina: number;
   campo_x: number;
   campo_y: number;
   campo_ancho: number;
   campo_alto: number;
+}
+
+export interface FirmanteInput {
+  nombre: string;
+  correo: string;
+  // Primary field (first one) — kept in the single columns for the firmante's
+  // hint and backward compatibility.
+  pagina: number;
+  campo_x: number;
+  campo_y: number;
+  campo_ancho: number;
+  campo_alto: number;
+  // All signature spots for this signer (a signer can sign in several places).
+  campos?: CampoFirma[];
 }
 
 /** Per-plan cap on how many documents can be uploaded in a SINGLE batch. The
@@ -169,7 +181,7 @@ async function createOneDocument(
     const nombreFirmante = sanitizeText(f.nombre, 100);
     const correoFirmante = f.correo.trim().toLowerCase();
 
-    // Insert firmante
+    // Insert firmante (primary field in the single columns)
     const { data: firmante, error: insertError } = await admin.from("firmantes").insert({
       documento_id: docId,
       nombre: nombreFirmante,
@@ -181,11 +193,17 @@ async function createOneDocument(
       campo_y: f.campo_y,
       campo_ancho: f.campo_ancho,
       campo_alto: f.campo_alto,
-    }).select("token").single();
+    }).select("token, id").single();
 
     if (insertError || !firmante) {
       console.error(`[Firmiu] ERROR insert firmante ${orden} (${correoFirmante}):`, insertError?.message ?? "firmante null");
       return;
+    }
+
+    // Store the full list of signature spots (migración 014). Non-fatal: if the
+    // column doesn't exist yet, signing falls back to the single primary field.
+    if (f.campos && f.campos.length > 0) {
+      await admin.from("firmantes").update({ campos: f.campos }).eq("id", firmante.id);
     }
 
     // Sequential: hold every email except the first signer's.

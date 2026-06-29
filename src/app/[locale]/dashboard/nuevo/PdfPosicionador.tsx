@@ -13,14 +13,14 @@ export interface PosicionFirma {
 export interface FirmanteLocal {
   nombre: string;
   correo: string;
-  posicion: PosicionFirma | null;
+  // Un firmante puede tener VARIOS lugares de firma en el documento unificado.
+  posiciones: PosicionFirma[];
 }
 
 const SIGNER_COLORS = ["#1a3c5e", "#F97316", "#10B981", "#8B5CF6", "#EF4444"];
 // Signature-sized field (relative to page). Kept small so the signature sits
-// naturally on a signature line instead of a huge floating box. The stamped
-// signature (drawSignatureOnPage) scales to whatever field is stored, so these
-// two values define the on-document size — keep them modest.
+// naturally on a signature line. The stamp (drawSignatureOnPage) scales to the
+// stored field, so these two values define the on-document size.
 const FIELD_W = 0.20;
 const FIELD_H = 0.05;
 
@@ -28,33 +28,37 @@ interface Props {
   file: File;
   firmantes: FirmanteLocal[];
   activeSigner: number;
-  onPlace: (signerIndex: number, pos: PosicionFirma) => void;
-  // Signer controls (rendered beside the preview)
   onSelectSigner: (i: number) => void;
   onAddSigner: () => void;
   maxSigners: number;
   signerFallback: (n: number) => string;
   addSignerLabel: string;
+  // Field editing
+  onAddField: (signerIndex: number, pos: PosicionFirma) => void;
+  onMoveField: (signerIndex: number, fieldIndex: number, pos: PosicionFirma) => void;
+  onRemoveField: (signerIndex: number, fieldIndex: number) => void;
   positionHint: string;
   positionActive: (n: number) => string;
-  positionPlaced: (n: number) => string;
-  positionNotPlaced: string;
+  fieldsCount: (n: number) => string;
+  noFields: string;
 }
 
 export default function PdfPosicionador({
   file,
   firmantes,
   activeSigner,
-  onPlace,
   onSelectSigner,
   onAddSigner,
   maxSigners,
   signerFallback,
   addSignerLabel,
+  onAddField,
+  onMoveField,
+  onRemoveField,
   positionHint,
   positionActive,
-  positionPlaced,
-  positionNotPlaced,
+  fieldsCount,
+  noFields,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
@@ -62,24 +66,17 @@ export default function PdfPosicionador({
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [pdfFailed, setPdfFailed] = useState(false);
+  const [disp, setDisp] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
   const ZOOM_MIN = 0.6, ZOOM_MAX = 2.5, ZOOM_STEP = 0.2;
-  // Display size of the page (CSS px). Internal canvas resolution is this × DPR
-  // for a crisp render on high-DPI screens (fixes the blurry preview).
-  const [disp, setDisp] = useState<{ w: number; h: number } | null>(null);
   const pdfRef = useRef<{ getPage: (n: number) => Promise<unknown> } | null>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const hasRenderedRef = useRef(false);
 
   const renderPage = useCallback(async (pageNum: number) => {
     if (!pdfRef.current || !canvasRef.current) return;
-    // Cancel any in-flight render first. Rendering twice on the same canvas throws
-    // ("multiple render()") and can leave the preview blank/garbled — that was the
-    // intermittent "no se previsualiza bien" bug. Cancelling serializes renders.
     if (renderTaskRef.current) { try { renderTaskRef.current.cancel(); } catch { /* ignore */ } renderTaskRef.current = null; }
-    // Spinner only on first paint — re-renders (zoom, resize, page nav) update in
-    // place without flashing the overlay.
     if (!hasRenderedRef.current) setLoading(true);
     try {
       const page = await pdfRef.current.getPage(pageNum) as {
@@ -87,20 +84,14 @@ export default function PdfPosicionador({
         render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void>; cancel: () => void };
       };
       const pane = paneRef.current;
-      // -32 accounts for the scroll container's padding so the canvas fits without
-      // an unwanted horizontal scrollbar at zoom 1.
       const paneW = Math.max(280, (pane?.clientWidth ?? 0) - 32);
       const unscaled = page.getViewport({ scale: 1 });
       const aspect = unscaled.height / unscaled.width;
 
-      // Fit the whole page within the pane width AND ~80% of the viewport height
-      // so the document is fully visible (intuitive positioning, no scrolling).
       const maxH = Math.max(380, Math.round((typeof window !== "undefined" ? window.innerHeight : 900) * 0.8));
       let displayW = paneW;
       let displayH = displayW * aspect;
       if (displayH > maxH) { displayH = maxH; displayW = displayH / aspect; }
-
-      // Apply user zoom on top of the base fit. >1 overflows the pane (scrollable).
       displayW *= zoomRef.current;
       displayH *= zoomRef.current;
 
@@ -136,8 +127,6 @@ export default function PdfPosicionador({
       setLoading(true);
       setPdfFailed(false);
       try {
-        // Promise.try polyfill (pdfjs-dist v5). Must forward args + convert sync
-        // throws to rejections; dropping the args broke pdf.js ("docId").
         const PromiseAny = Promise as any; // polyfill assignment needs any
         if (typeof PromiseAny["try"] !== "function") {
           PromiseAny["try"] = function <T>(
@@ -152,8 +141,6 @@ export default function PdfPosicionador({
 
         const pdfjsLib = await import("pdfjs-dist");
 
-        // Worker as a blob: URL with explicit JS MIME — sidesteps the global
-        // `X-Content-Type-Options: nosniff` header rejecting the module worker.
         let workerSrc = "/pdf.worker.min.mjs";
         try {
           const res = await fetch(workerSrc);
@@ -191,22 +178,19 @@ export default function PdfPosicionador({
     if (pdfRef.current && !pdfFailed) renderPage(currentPage);
   }, [currentPage, renderPage, pdfFailed]);
 
-  // Re-render (not reload) when the zoom level changes.
   useEffect(() => {
     zoomRef.current = zoom;
     if (pdfRef.current && !pdfFailed) renderPage(currentPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
-  // Re-render on container resize (window resize / layout changes) so the
-  // preview stays crisp and correctly sized.
   useEffect(() => {
     const pane = paneRef.current;
     if (!pane || typeof ResizeObserver === "undefined") return;
     let raf = 0;
     let first = true;
     const ro = new ResizeObserver(() => {
-      if (first) { first = false; return; } // initial fire handled by the load effect
+      if (first) { first = false; return; }
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         if (pdfRef.current && !pdfFailed) renderPage(currentPage);
@@ -216,59 +200,66 @@ export default function PdfPosicionador({
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, [renderPage, currentPage, pdfFailed]);
 
-  function placeFromPoint(clientX: number, clientY: number, rect: DOMRect) {
-    const w = rect.width;
-    const h = rect.height;
+  // ── Add a field for the active signer by clicking the document ──
+  function posFromPoint(clientX: number, clientY: number, rect: DOMRect): PosicionFirma {
     const clickX = clientX - rect.left;
     const clickY = clientY - rect.top;
-    const fw = FIELD_W * w;
-    const fh = FIELD_H * h;
-    const campo_x = Math.max(0, Math.min(1 - FIELD_W, (clickX - fw / 2) / w));
-    const campo_y = Math.max(0, Math.min(1 - FIELD_H, (clickY - fh / 2) / h));
-    onPlace(activeSigner, { pagina: currentPage, campo_x, campo_y, campo_ancho: FIELD_W, campo_alto: FIELD_H });
+    const fw = FIELD_W * rect.width;
+    const fh = FIELD_H * rect.height;
+    return {
+      pagina: currentPage,
+      campo_x: Math.max(0, Math.min(1 - FIELD_W, (clickX - fw / 2) / rect.width)),
+      campo_y: Math.max(0, Math.min(1 - FIELD_H, (clickY - fh / 2) / rect.height)),
+      campo_ancho: FIELD_W,
+      campo_alto: FIELD_H,
+    };
   }
 
   function handleClick(e: React.MouseEvent<HTMLElement>) {
-    placeFromPoint(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
+    onAddField(activeSigner, posFromPoint(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()));
   }
 
-  // ── Drag the active signer's box to fine-tune (mouse + touch) ──
-  const draggingRef = useRef(false);
+  // ── Drag a field to move it (mouse + touch) ──
+  const dragRef = useRef<{ signer: number; field: number } | null>(null);
   const grabOffset = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
 
-  function onBoxPointerDown(e: React.PointerEvent, i: number) {
+  function onBoxPointerDown(e: React.PointerEvent, signer: number, field: number) {
     e.stopPropagation();
     e.preventDefault();
-    onSelectSigner(i);
+    onSelectSigner(signer);
     const rect = canvasRef.current?.getBoundingClientRect();
-    const pos = firmantes[i].posicion;
+    const pos = firmantes[signer]?.posiciones[field];
     if (!rect || !pos) return;
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
     grabOffset.current = { dx: px - pos.campo_x, dy: py - pos.campo_y };
-    draggingRef.current = true;
+    dragRef.current = { signer, field };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   }
 
-  function onBoxPointerMove(e: React.PointerEvent, i: number) {
-    if (!draggingRef.current) return;
+  function onBoxPointerMove(e: React.PointerEvent) {
+    const d = dragRef.current;
+    if (!d) return;
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
-    const campo_x = Math.max(0, Math.min(1 - FIELD_W, px - grabOffset.current.dx));
-    const campo_y = Math.max(0, Math.min(1 - FIELD_H, py - grabOffset.current.dy));
-    onPlace(i, { pagina: currentPage, campo_x, campo_y, campo_ancho: FIELD_W, campo_alto: FIELD_H });
+    onMoveField(d.signer, d.field, {
+      pagina: currentPage,
+      campo_x: Math.max(0, Math.min(1 - FIELD_W, px - grabOffset.current.dx)),
+      campo_y: Math.max(0, Math.min(1 - FIELD_H, py - grabOffset.current.dy)),
+      campo_ancho: FIELD_W,
+      campo_alto: FIELD_H,
+    });
   }
 
   function onBoxPointerUp(e: React.PointerEvent) {
-    draggingRef.current = false;
+    dragRef.current = null;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   }
 
-  function fieldStyle(pos: PosicionFirma, index: number) {
-    if (pos.pagina !== currentPage) return null;
-    const color = SIGNER_COLORS[index % SIGNER_COLORS.length];
+  function boxStyle(pos: PosicionFirma, signerIndex: number) {
+    const color = SIGNER_COLORS[signerIndex % SIGNER_COLORS.length];
     return {
       left: `${pos.campo_x * 100}%`,
       top: `${pos.campo_y * 100}%`,
@@ -281,28 +272,47 @@ export default function PdfPosicionador({
 
   const activeColor = SIGNER_COLORS[activeSigner % SIGNER_COLORS.length];
 
-  const overlays = firmantes.map((f, i) => {
-    if (!f.posicion) return null;
-    const style = fieldStyle(f.posicion, i);
-    if (!style) return null;
-    const isActive = i === activeSigner;
-    return (
-      <div key={i}
-        className={`absolute border-2 rounded-[4px] flex items-center justify-center ${isActive ? "cursor-move touch-none" : "pointer-events-none"}`}
-        style={{ ...style, background: `${style.borderColor}18` }}
-        onPointerDown={isActive ? (e) => onBoxPointerDown(e, i) : undefined}
-        onPointerMove={isActive ? (e) => onBoxPointerMove(e, i) : undefined}
-        onPointerUp={isActive ? onBoxPointerUp : undefined}
-        onPointerCancel={isActive ? onBoxPointerUp : undefined}
-      >
-        <span className="text-[11px] font-bold px-1 pointer-events-none" style={{ color: style.color }}>{i + 1}</span>
-      </div>
-    );
-  });
+  // Flatten every signer's fields on the current page into draggable boxes.
+  const overlays = firmantes.flatMap((f, si) =>
+    f.posiciones.map((pos, fi) => {
+      if (pos.pagina !== currentPage) return null;
+      const style = boxStyle(pos, si);
+      const isActive = si === activeSigner;
+      return (
+        <div key={`${si}-${fi}`}
+          className="absolute border-2 rounded-[4px] flex items-center justify-center cursor-move touch-none transition-shadow"
+          style={{
+            ...style,
+            background: `${style.borderColor}${isActive ? "22" : "14"}`,
+            opacity: isActive ? 1 : 0.85,
+            boxShadow: isActive ? `0 0 0 2px ${style.borderColor}66` : "none",
+            zIndex: isActive ? 2 : 1,
+          }}
+          onPointerDown={(e) => onBoxPointerDown(e, si, fi)}
+          onPointerMove={onBoxPointerMove}
+          onPointerUp={onBoxPointerUp}
+          onPointerCancel={onBoxPointerUp}
+        >
+          <span className="text-[11px] font-bold px-1 pointer-events-none" style={{ color: style.color }}>{si + 1}</span>
+          {/* Remove this field */}
+          <button type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onRemoveField(si, fi); }}
+            className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-white border flex items-center justify-center shadow-sm"
+            style={{ borderColor: style.borderColor }}
+            aria-label="remove">
+            <svg className="w-2.5 h-2.5" style={{ color: style.borderColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      );
+    })
+  );
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 items-start">
-      {/* ── PDF pane (large) ── */}
+      {/* ── PDF pane ── */}
       <div ref={paneRef} className="flex-1 min-w-0 w-full">
         {/* Zoom toolbar */}
         <div className="flex items-center justify-end gap-1.5 mb-2">
@@ -327,7 +337,7 @@ export default function PdfPosicionador({
 
           {pdfFailed ? (
             <div
-              className="relative cursor-crosshair select-none rounded-[4px] shadow-sm w-full max-w-[520px]"
+              className="relative cursor-crosshair select-none rounded-[4px] shadow-sm w-full max-w-[520px] mx-auto"
               style={{ aspectRatio: "1 / 1.414", background: "white" }}
               onClick={handleClick}
             >
@@ -336,11 +346,10 @@ export default function PdfPosicionador({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <p className="text-[#1a3c5e] text-xs font-medium mt-2">Página {currentPage}</p>
               </div>
               <div className="absolute top-2 left-2 right-2 z-10">
                 <div className="bg-amber-50 border border-amber-200 rounded-[7px] px-2.5 py-1.5 text-[11px] text-amber-700 text-center">
-                  Vista previa no disponible — haz clic para posicionar la firma
+                  Vista previa no disponible — haz clic para colocar la firma
                 </div>
               </div>
               {overlays}
@@ -361,7 +370,6 @@ export default function PdfPosicionador({
           )}
         </div>
 
-        {/* Navegación de páginas */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 mt-3">
             <button type="button" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
@@ -375,7 +383,6 @@ export default function PdfPosicionador({
 
       {/* ── Controls pane ── */}
       <div className="w-full lg:w-[280px] shrink-0 flex flex-col gap-3 lg:sticky lg:top-[68px]">
-        {/* Active hint */}
         <div
           className="text-[13px] px-3 py-2.5 rounded-[9px] font-medium text-center"
           style={{ background: `${activeColor}15`, color: activeColor, border: `1px solid ${activeColor}30` }}
@@ -396,7 +403,7 @@ export default function PdfPosicionador({
               }}
             >
               {i + 1}. {(f.nombre || signerFallback(i + 1)).slice(0, 14)}
-              {f.posicion && <span>✓</span>}
+              {f.posiciones.length > 0 && <span>· {f.posiciones.length}</span>}
             </button>
           ))}
           {firmantes.length < maxSigners && (
@@ -418,10 +425,10 @@ export default function PdfPosicionador({
                 <span className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
                   style={{ background: color }}>{i + 1}</span>
                 <span className="font-medium text-[#374151] truncate flex-1">{f.nombre || signerFallback(i + 1)}</span>
-                {f.posicion ? (
-                  <span className="text-[#10B981] text-[11px] font-medium shrink-0">✓ {positionPlaced(f.posicion.pagina)}</span>
+                {f.posiciones.length > 0 ? (
+                  <span className="text-[#10B981] text-[11px] font-medium shrink-0">✓ {fieldsCount(f.posiciones.length)}</span>
                 ) : (
-                  <span className="text-[#9CA3AF] text-[11px] shrink-0">{positionNotPlaced}</span>
+                  <span className="text-[#9CA3AF] text-[11px] shrink-0">{noFields}</span>
                 )}
               </div>
             );

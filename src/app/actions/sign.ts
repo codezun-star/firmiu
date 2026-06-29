@@ -452,15 +452,32 @@ async function signFirmante({
     const pngBytes = Buffer.from(signaturePng.replace(/^data:image\/png;base64,/, ""), "base64");
     const pngImage = await pdfDoc.embedPng(pngBytes);
 
-    // 1. Place this signer's signature at their positioned field
+    // 1. Place this signer's signature at EVERY field they were assigned. A
+    //    signer can have several signature spots across the unified document and
+    //    signing once stamps all of them. `campos` (jsonb, migración 014) is read
+    //    tolerantly; if it's missing/empty we fall back to the single campo_*.
     const pages = pdfDoc.getPages();
-    const pageIndex = Math.max(0, Math.min(firmante.pagina - 1, pages.length - 1));
-    drawSignatureOnPage(pages[pageIndex], pngImage, {
-      campo_x: firmante.campo_x,
-      campo_y: firmante.campo_y,
-      campo_ancho: firmante.campo_ancho,
-      campo_alto: firmante.campo_alto,
-    });
+    type Campo = { pagina: number; campo_x: number; campo_y: number; campo_ancho: number; campo_alto: number };
+    let campos: Campo[] = [];
+    try {
+      const { data: cRow } = await admin.from("firmantes").select("campos").eq("id", firmante.id).maybeSingle();
+      const raw = (cRow as { campos?: unknown } | null)?.campos;
+      if (Array.isArray(raw)) {
+        campos = (raw as Campo[]).filter(c => c && typeof c.campo_x === "number");
+      }
+    } catch { /* column missing → fall back below */ }
+    if (campos.length === 0) {
+      campos = [{
+        pagina: firmante.pagina, campo_x: firmante.campo_x, campo_y: firmante.campo_y,
+        campo_ancho: firmante.campo_ancho, campo_alto: firmante.campo_alto,
+      }];
+    }
+    for (const c of campos) {
+      const pageIndex = Math.max(0, Math.min((c.pagina || 1) - 1, pages.length - 1));
+      drawSignatureOnPage(pages[pageIndex], pngImage, {
+        campo_x: c.campo_x, campo_y: c.campo_y, campo_ancho: c.campo_ancho, campo_alto: c.campo_alto,
+      });
+    }
 
     // 2. Are all OTHER signers already done? (this one isn't marked yet)
     //    NOTE: requires migration 011 (firma_imagen, firma_timezone). If those
