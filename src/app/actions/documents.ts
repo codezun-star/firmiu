@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
@@ -177,7 +178,8 @@ async function createOneDocument(
 
   await Promise.all(firmantes.map(async (f, idx) => {
     const orden = idx + 1;
-    const verificationCode = String(Math.floor(1000 + Math.random() * 9000));
+    // Crypto-secure 4-digit code (1000–9999). Not Math.random (predictable).
+    const verificationCode = String(crypto.randomInt(1000, 10000));
     const nombreFirmante = sanitizeText(f.nombre, 100);
     const correoFirmante = f.correo.trim().toLowerCase();
 

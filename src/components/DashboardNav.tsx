@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { logoutAction } from "@/app/actions/auth";
+import { FirmiuMark } from "./Logo";
 
 interface DashboardNavProps {
   locale: string;
@@ -91,10 +92,13 @@ export default function DashboardNav({ locale, userName, userInitials, currentPl
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
-        <p className="text-lg font-medium tracking-tight">
-          <span className="text-white">firm</span>
-          <span className="text-[#F97316]">iu</span>
-        </p>
+        <Link href={`${prefix}/dashboard`} className="flex items-center gap-2">
+          <FirmiuMark className="w-7 h-7" />
+          <span className="text-lg font-medium tracking-tight">
+            <span className="text-white">firm</span>
+            <span className="text-[#F97316]">iu</span>
+          </span>
+        </Link>
       </div>
 
       {/* Nav */}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { FirmiuMark } from "./Logo";
 
 export default function Footer() {
   const t = useTranslations("footer");
@@ -17,10 +18,13 @@ export default function Footer() {
 
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <p className="text-xl font-medium tracking-tight mb-3">
-              <span className="text-white">firm</span>
-              <span className="text-[#F97316]">iu</span>
-            </p>
+            <div className="flex items-center gap-2 mb-3">
+              <FirmiuMark className="w-7 h-7" />
+              <p className="text-xl font-medium tracking-tight">
+                <span className="text-white">firm</span>
+                <span className="text-[#F97316]">iu</span>
+              </p>
+            </div>
             <p className="text-[#6a9abf] text-[13px] leading-relaxed">
               {t("tagline")}
             </p>

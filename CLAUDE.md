@@ -181,7 +181,8 @@ firmiu/
 │       ├── 011_firma_imagen.sql         # firmantes: firma_imagen + firma_timezone (para el certificado)
 │       ├── 012_orden_firma.sql          # documentos: modo_firma ('paralelo' | 'secuencial')
 │       ├── 013_drop_firmas.sql          # DROP TABLE firmas (legacy single-signer eliminado)
-│       └── 014_campos_firma.sql         # firmantes: campos jsonb (varios lugares de firma por firmante)
+│       ├── 014_campos_firma.sql         # firmantes: campos jsonb (varios lugares de firma por firmante)
+│       └── 015_doc_hashes.sql           # documentos: hash_original + hash_firmado (integridad)
 ├── vercel.json                           # Cron job: reset-docs el día 1 de cada mes
 ├── next.config.js                        # Security headers (HSTS, CSP, X-Frame, etc.)
 ├── tailwind.config.ts
@@ -200,6 +201,7 @@ firmiu/
 - **Mobile first**, diseño limpio y minimalista
 - **Componentes**: bordes redondeados (`rounded-[9px]`, `rounded-[14px]`), sombras sutiles
 - **Sin librerías UI** — todo Tailwind puro
+- **Logo**: `FirmiuMark` (exportado de `Logo.tsx`) = pluma blanca en badge con gradiente navy→naranja (SVG, funciona en cualquier fondo) + wordmark `firm`(navy/blanco)`iu`(naranja). Usado en navbar, sidebar, auth, footer, firmar/checkout/éxito, favicon (`icon.svg`) y dibujado en el **certificado PDF** (`addCertificatePage` vía `drawSvgPath`). El componente `Logo` enlaza a la home (sirve de "volver al inicio" en login/registro).
 
 ### Keyframes en globals.css
 - `firmiu-overlay-in` — backdrop fade in
@@ -423,6 +425,11 @@ create table documentos (
   url_pdf_firmado      text,
   token                uuid not null unique default gen_random_uuid(),
   oculto               boolean not null default false,
+  -- migración 012:
+  modo_firma           text not null default 'paralelo',  -- 'paralelo' | 'secuencial'
+  -- migración 015 (integridad): SHA-256 del PDF original y del PDF final firmado
+  hash_original        text,
+  hash_firmado         text,
   creado_en            timestamptz not null default now()
 );
 
@@ -529,6 +536,7 @@ create table if not exists webhook_logs (
 012_orden_firma.sql     → documentos: modo_firma (orden secuencial/paralelo; sin esto todo es 'paralelo', no rompe)
 013_drop_firmas.sql     → DROP TABLE firmas (legacy de un firmante eliminado; el código ya no la usa)
 014_campos_firma.sql    → firmantes: campos jsonb (varios lugares de firma por firmante; sin esto solo se estampa el campo primario)
+015_doc_hashes.sql      → documentos: hash_original + hash_firmado (registro de integridad; sin esto no rompe, solo no se guarda el hash)
 ```
 
 > ⚠️ **008, 010 y 011 son obligatorias** para el sistema actual. Si faltan: 008 → el flujo multi-firmante no existe; 010 → el contador de plan no incrementa (no-fatal); 011 → `signFirmante` falla de forma explícita (lo protegimos con un guard).
@@ -632,6 +640,7 @@ npm run lint     # ESLint
 - **deleteAccountAction**: además del cascade de DB, borra los PDFs de Storage. Mantener esa limpieza (privacidad/GDPR).
 - **Migración 011 obligatoria**: `signFirmante` selecciona/escribe `firma_imagen` y `firma_timezone`. Si faltan, el guard `othersErr` aborta la firma. Aplicar 011 antes de desplegar.
 - **Concurrencia multi-firmante (pendiente)**: dos firmantes simultáneos descargan el mismo PDF base y suben al mismo path con `upsert:true` → puede perderse una firma. No resuelto; si se promueve multi-firmante en serio, añadir lock optimista por documento.
+- **Seguridad — integridad e identidad (SES)**: la firma es imagen + audit trail, NO criptográfica (no PAdES). Registros de integridad: el certificado muestra el SHA-256 del PDF **original** y, desde la migración 015, `documentos.hash_original` + `hash_firmado` (SHA-256 del PDF final) se guardan en la BD como prueba inmutable (`signFirmante`, update no-fatal al firmar el último). Para verificar un PDF presentado: comparar su SHA-256 contra `hash_firmado`. **IP del audit**: `getRequestIp` usa headers de plataforma (`x-vercel-forwarded-for`/`x-real-ip`) — NO confiar en `x-forwarded-for` crudo (falsificable). **Código de verificación**: `crypto.randomInt(1000,10000)` (no `Math.random`) + bloqueo a los 5 intentos. El código viaja en el mismo correo que el enlace (modelo SES: quien controla el correo, firma).
 
 ---
 

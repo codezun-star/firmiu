@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import AuthLanguageSwitcher from "./AuthLanguageSwitcher";
+import Logo from "./Logo";
 
 interface AuthPageShellProps {
   locale: string;
@@ -8,6 +10,9 @@ interface AuthPageShellProps {
 
 export default function AuthPageShell({ locale, children }: AuthPageShellProps) {
   const t = useTranslations("auth.panel");
+  const ta = useTranslations("auth");
+  const prefix = locale === "es" ? "" : `/${locale}`;
+  const caps = [t("cap1"), t("cap2"), t("cap3"), t("cap4"), t("cap5"), t("cap6")];
 
   const features = [
     {
@@ -56,13 +61,10 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
         <div className="absolute bottom-20 -left-10 w-48 h-48 rounded-full border border-white/5 bg-white/[0.02]" />
 
         <div className="relative z-10 flex flex-col flex-1 p-7">
-          {/* Logo */}
+          {/* Logo (clickable → home) */}
           <div className="mb-7">
-            <p className="text-2xl font-medium tracking-tight">
-              <span className="text-white">firm</span>
-              <span className="text-[#F97316]">iu</span>
-            </p>
-            <p className="text-[#94b8d4] text-xs mt-1">{t("tagline")}</p>
+            <Logo locale={locale} white />
+            <p className="text-[#94b8d4] text-xs mt-1.5">{t("tagline")}</p>
           </div>
 
           {/* Scrollable content area */}
@@ -81,6 +83,18 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* More capabilities (chips) */}
+            <div>
+              <p className="text-[#6a9abf] text-[10px] uppercase tracking-wider mb-2">{t("more_title")}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {caps.map((c) => (
+                  <span key={c} className="text-[11px] text-[#94b8d4] bg-white/[0.06] border border-white/10 rounded-full px-2.5 py-1">
+                    {c}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Divider */}
@@ -127,13 +141,21 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
       <div className="w-full lg:w-1/2 bg-[#F8F9FA] flex items-center justify-center p-6 min-h-screen">
         {/* Inner wrapper — stacks logo + card on mobile, just card on desktop */}
         <div className="w-full max-w-[340px] lg:max-w-sm">
-          {/* Mobile logo */}
+          {/* Back to home */}
+          <Link
+            href={`${prefix}/`}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#6B7280] hover:text-[#1a3c5e] transition-colors mb-5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            {ta("back_home")}
+          </Link>
+
+          {/* Mobile logo (clickable → home) */}
           <div className="lg:hidden flex flex-col items-center mb-8">
-            <p className="text-2xl font-medium tracking-tight">
-              <span className="text-[#1a3c5e]">firm</span>
-              <span className="text-[#F97316]">iu</span>
-            </p>
-            <p className="text-[#9CA3AF] text-xs mt-1">{t("tagline")}</p>
+            <Logo locale={locale} />
+            <p className="text-[#9CA3AF] text-xs mt-1.5">{t("tagline")}</p>
           </div>
 
           {/* Card — no border/shadow on mobile */}

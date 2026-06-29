@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { FirmiuMark } from "./Logo";
 
 export default function Navbar() {
   const t = useTranslations("nav");
@@ -53,9 +54,12 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href={`${prefix}/`} className="text-xl font-medium tracking-tight shrink-0">
-            <span className="text-white">firm</span>
-            <span className="text-[#F97316]">iu</span>
+          <Link href={`${prefix}/`} className="flex items-center gap-2 shrink-0">
+            <FirmiuMark className="w-7 h-7" />
+            <span className="text-xl font-medium tracking-tight">
+              <span className="text-white">firm</span>
+              <span className="text-[#F97316]">iu</span>
+            </span>
           </Link>
 
           {/* Desktop nav links */}

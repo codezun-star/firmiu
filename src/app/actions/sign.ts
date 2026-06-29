@@ -210,6 +210,15 @@ async function addCertificatePage(
     page.drawText(text, { x: centerX - w / 2, y, size, font: f, color });
   };
 
+  // ── Brand mark (feather) at the top, centered ──
+  const fScale = 0.7;
+  const fx = centerX - 12 * fScale;
+  const fy = fromTop(16);
+  const orange = rgb(0.976, 0.451, 0.086);
+  page.drawSvgPath("M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z", { x: fx, y: fy, scale: fScale, color: darkBlue });
+  page.drawSvgPath("M16 8 2 22", { x: fx, y: fy, scale: fScale, borderColor: orange, borderWidth: 1.4 });
+  page.drawSvgPath("M17.5 15H9", { x: fx, y: fy, scale: fScale, borderColor: orange, borderWidth: 1.4 });
+
   // ── Header + completion summary ──
   drawCentered(L.certTitle, fromTop(50), 15, bold, darkBlue);
   drawCentered("firmiu.com", fromTop(66), 9, font, darkBlue);
@@ -307,7 +316,15 @@ async function addCertificatePage(
 // ── Helper: get request IP ───────────────────────────────────────────────────
 function getRequestIp(): string | null {
   const h = headers();
-  const raw = h.get("x-forwarded-for") ?? h.get("x-real-ip") ?? null;
+  // Trust ONLY platform-set headers for the audit IP. On Vercel,
+  // `x-vercel-forwarded-for` / `x-real-ip` are derived from the real TCP
+  // connection and can't be spoofed by a client header. `x-forwarded-for` CAN be
+  // spoofed (the client value is prepended), so it's only a local-dev fallback.
+  const raw =
+    h.get("x-vercel-forwarded-for") ??
+    h.get("x-real-ip") ??
+    h.get("x-forwarded-for") ??
+    null;
   const clean = raw?.split(",")[0]?.trim() ?? null;
   const isPrivate =
     !clean || clean === "::1" || clean === "::ffff:127.0.0.1" ||
@@ -498,6 +515,7 @@ async function signFirmante({
     // 3. On the FINAL signature, append ONE certificate page with every signer
     //    in order (signature thumbnail + audit data). Replaces the old
     //    per-signer audit page (N pages in signing-time order).
+    let docHash = ""; // SHA-256 of the ORIGINAL PDF (set on the final signature)
     if (allSigned) {
       const signers: CertSigner[] = [
         ...(others ?? []).map(o => ({
@@ -528,7 +546,6 @@ async function signFirmante({
 
       // Document fingerprint: SHA-256 of the ORIGINAL uploaded PDF. Proves the
       // signed content matches exactly what was sent. Non-fatal if it fails.
-      let docHash = "";
       try {
         const { data: origBlob } = await admin.storage.from("pdfs-originales").download(doc.url_pdf_original);
         if (origBlob) docHash = crypto.createHash("sha256").update(Buffer.from(await origBlob.arrayBuffer())).digest("hex");
@@ -565,6 +582,18 @@ async function signFirmante({
     await admin.from("documentos")
       .update({ url_pdf_firmado: firmadoPath, estado: allSigned ? "firmado" : "visto" })
       .eq("id", doc.id);
+
+    // 5a. On the FINAL signature, persist an immutable integrity record: SHA-256
+    //     of the original AND of the final signed PDF. Separate, non-fatal update
+    //     so signing still works if migration 015 isn't applied yet.
+    if (allSigned) {
+      try {
+        const hashFirmado = crypto.createHash("sha256").update(Buffer.from(signedBytes)).digest("hex");
+        await admin.from("documentos")
+          .update({ hash_original: docHash || null, hash_firmado: hashFirmado })
+          .eq("id", doc.id);
+      } catch { /* columns missing (migración 015) — non-fatal */ }
+    }
 
     // 5b. Sequential mode: now that this signer is done, email the NEXT pending
     //     signer (lowest orden still unsigned). Non-fatal.
