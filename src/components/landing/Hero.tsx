@@ -115,13 +115,15 @@ export default function Hero({ locale }: HeroProps) {
 
           {/* ── Right: photo + floating mockup ── */}
           <div className="order-1 lg:order-2 relative flex justify-center lg:justify-end">
+            {/* Soft glow behind the photo */}
+            <div className="absolute -inset-6 bg-[#F97316]/10 blur-3xl rounded-full pointer-events-none" />
             {/* Photo container */}
             <div className="relative w-full max-w-[420px]">
               {/* Main photo */}
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl aspect-[4/3]">
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl aspect-[4/3] ring-1 ring-white/10">
                 <Image
-                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=840&auto=format&fit=crop&q=80"
-                  alt="Professional using digital signature software"
+                  src="/hero.jpg"
+                  alt="Profesional firmando documentos digitalmente con Firmiu"
                   fill
                   className="object-cover"
                   priority

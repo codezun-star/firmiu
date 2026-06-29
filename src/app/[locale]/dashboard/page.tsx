@@ -47,20 +47,6 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
   const totalCount    = docs.length;
   const thisMonth     = docs.filter(d => new Date(d.creado_en) >= startOfMonth).length;
 
-  // ── Plan + monthly usage (for the "Tu plan" card) ──
-  const { data: sub } = await supabase
-    .from("suscripciones")
-    .select("plan, estado, documentos_mes, limite_documentos, periodo_fin")
-    .eq("owner_id", userId)
-    .maybeSingle();
-  const cancelingValid = sub?.estado === "canceling" && (!sub.periodo_fin || new Date(sub.periodo_fin as string) > new Date());
-  const planActive = !!sub && (sub.estado === "active" || cancelingValid);
-  const planKey    = planActive ? ((sub!.plan as string) ?? "free") : "free";
-  const planLimit  = planActive ? ((sub!.limite_documentos as number) ?? 3) : 3;
-  const planUsed   = planActive ? ((sub!.documentos_mes as number) ?? 0) : thisMonth;
-  const planUnlimited = planLimit >= 999999;
-  const planPct = planUnlimited ? 0 : Math.min(100, Math.round((planUsed / Math.max(1, planLimit)) * 100));
-  const planLabel = planKey === "free" ? t("plan_free") : planKey.charAt(0).toUpperCase() + planKey.slice(1);
   const pendienteCount = docs.filter(d => d.estado === "pendiente").length;
   const vistoCount    = docs.filter(d => d.estado === "visto").length;
   const firmadoCount  = docs.filter(d => d.estado === "firmado").length;
@@ -80,6 +66,19 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
 
   // Recent 5 documents
   const recentDocs = docs.slice(0, 5);
+
+  // "Necesitan tu atención": documentos esperando firma, los más antiguos primero
+  const attentionDocs = docs
+    .filter(d => d.estado === "pendiente" || d.estado === "visto")
+    .sort((a, b) => new Date(a.creado_en).getTime() - new Date(b.creado_en).getTime())
+    .slice(0, 5)
+    .map(d => ({
+      id: d.id,
+      titulo: d.titulo,
+      nombre: d.nombre_destinatario,
+      estado: d.estado,
+      dias: Math.max(0, Math.floor((now.getTime() - new Date(d.creado_en).getTime()) / 86400000)),
+    }));
 
   // Activity: latest signed firmas for this user's docs
   const docIds = docs.map(d => d.id);
@@ -328,64 +327,56 @@ export default async function DashboardPage({ params: { locale } }: DashboardPag
         </div>
       </div>
 
-      {/* ── Quick actions + plan usage ─────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* ── Necesitan tu atención (documentos esperando firma) ──── */}
+      <div className="bg-white rounded-[10px] border-[0.5px] border-[#E5E7EB]">
+        <div className="px-5 py-4 border-b border-[#F3F4F6] flex items-center justify-between">
+          <p className="text-sm font-semibold text-[#111827]">{t("attention_title")}</p>
+          {attentionDocs.length > 0 && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[20px] bg-[#FFF7ED] text-[#C2410C]">
+              {attentionDocs.length}
+            </span>
+          )}
+        </div>
 
-        {/* Quick actions */}
-        <div className="lg:col-span-2 bg-white rounded-[10px] border-[0.5px] border-[#E5E7EB]">
-          <div className="px-5 py-4 border-b border-[#F3F4F6]">
-            <p className="text-sm font-semibold text-[#111827]">{t("quick_actions")}</p>
+        {attentionDocs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+            <div className="w-11 h-11 rounded-full bg-[#ECFDF5] flex items-center justify-center mb-3">
+              <svg className="w-5 h-5 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-sm text-[#374151] font-medium">{t("attention_empty_title")}</p>
+            <p className="text-xs text-[#9CA3AF] mt-0.5">{t("attention_empty_desc")}</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5">
-            {[
-              { href: `${prefix}/dashboard/nuevo`, label: t("action_new"), bg: "bg-[#FFF7ED]", fg: "text-[#F97316]",
-                path: "M12 4v16m8-8H4" },
-              { href: `${prefix}/dashboard/documentos`, label: t("action_documents"), bg: "bg-[#EFF6FF]", fg: "text-[#3B82F6]",
-                path: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-              { href: `${prefix}/dashboard/contactos`, label: t("action_contacts"), bg: "bg-[#ECFDF5]", fg: "text-[#10B981]",
-                path: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" },
-              { href: `${prefix}/dashboard/cuenta`, label: t("action_settings"), bg: "bg-[#F5F3FF]", fg: "text-[#8B5CF6]",
-                path: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z" },
-            ].map((a) => (
-              <Link key={a.href} href={a.href}
-                className="flex flex-col items-center justify-center gap-2 rounded-[10px] border border-[#F3F4F6] py-4 hover:border-[#E5E7EB] hover:bg-[#FAFAFA] transition-colors text-center">
-                <div className={`w-9 h-9 rounded-lg ${a.bg} flex items-center justify-center`}>
-                  <svg className={`w-4.5 h-4.5 ${a.fg}`} style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d={a.path} />
-                  </svg>
+        ) : (
+          <div className="divide-y divide-[#F3F4F6]">
+            {attentionDocs.map((d) => {
+              const urgent = d.dias >= 7;
+              return (
+                <div key={d.id} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-[#FAFAFA] transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.estado === "visto" ? "bg-[#3B82F6]" : "bg-[#F97316]"}`} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#111827] truncate">{d.titulo}</p>
+                      <p className="text-xs text-[#6B7280] truncate">
+                        {d.nombre} · {td(`status.${d.estado}`)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`shrink-0 text-[11px] font-medium ${urgent ? "text-[#B91C1C]" : "text-[#9CA3AF]"}`}>
+                    {d.dias === 0 ? t("attention_today") : t("attention_waiting", { n: d.dias })}
+                  </span>
                 </div>
-                <span className="text-[12px] font-medium text-[#374151] leading-tight">{a.label}</span>
+              );
+            })}
+            <div className="px-5 py-3">
+              <Link href={`${prefix}/dashboard/documentos`}
+                className="text-xs font-medium text-[#F97316] hover:text-[#EA580C] transition-colors">
+                {t("view_all")} →
               </Link>
-            ))}
+            </div>
           </div>
-        </div>
-
-        {/* Plan usage */}
-        <div className="bg-white rounded-[10px] border-[0.5px] border-[#E5E7EB]">
-          <div className="px-5 py-4 border-b border-[#F3F4F6] flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#111827]">{t("your_plan")}</p>
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#1a3c5e] text-white">{planLabel}</span>
-          </div>
-          <div className="px-5 py-5">
-            {planUnlimited ? (
-              <p className="text-[13px] text-[#374151]">{t("plan_unlimited")}</p>
-            ) : (
-              <>
-                <div className="flex justify-between text-[11px] text-[#6B7280] mb-1.5">
-                  <span>{t("plan_usage", { used: planUsed, limit: planLimit })}</span>
-                  <span>{planPct}%</span>
-                </div>
-                <div className="h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#F97316] rounded-full transition-all" style={{ width: `${planPct}%` }} />
-                </div>
-              </>
-            )}
-            <Link href={`${prefix}/dashboard/cuenta`}
-              className="mt-4 w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-[#1a3c5e] border border-[#E5E7EB] rounded-lg py-2 hover:bg-[#F9FAFB] transition-colors">
-              {t("manage_plan")}
-            </Link>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

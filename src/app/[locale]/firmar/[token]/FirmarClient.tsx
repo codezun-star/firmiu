@@ -246,6 +246,7 @@ export default function FirmarClient({
   }
 
   const steps = [t("step1"), t("step2"), t("step3")];
+  const initials = nombreDestinatario.split(" ").map(w => w[0] ?? "").join("").slice(0, 2).toUpperCase() || "?";
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -268,9 +269,37 @@ export default function FirmarClient({
       </header>
 
       {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-[#1a3c5e] to-[#1e4976] px-4 py-4 text-center">
-        <p className="text-white/50 text-[11px] mb-0.5">{t("welcome_hint")}</p>
-        <p className="text-white font-semibold text-sm">{nombreDestinatario}</p>
+      <div className="bg-gradient-to-r from-[#1a3c5e] to-[#1e4976] px-4 py-5">
+        <div className="max-w-2xl mx-auto flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-[#F97316] flex items-center justify-center shrink-0 text-white font-bold text-sm">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <p className="text-white/55 text-[11px] leading-tight">{t("welcome_hint")}</p>
+            <p className="text-white font-semibold text-[15px] truncate">{nombreDestinatario}</p>
+          </div>
+        </div>
+        {/* Trust strip */}
+        <div className="max-w-2xl mx-auto mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-white/60 text-[11px]">
+          <span className="inline-flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-[#F97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            {t("trust_legal")}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-[#F97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            {t("trust_encrypted")}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-[#F97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            {t("trust_audit")}
+          </span>
+        </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">

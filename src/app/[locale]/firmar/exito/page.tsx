@@ -33,12 +33,14 @@ export default function ExitoPage({ params: { locale }, searchParams }: ExitoPag
           {/* Success icon with audit badge */}
           <div className="flex justify-center mb-6">
             <div className="relative">
-              <div className="w-20 h-20 rounded-2xl bg-[#ECFDF5] border border-[#D1FAE5] flex items-center justify-center">
-                <svg className="w-10 h-10 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              {/* Soft glow */}
+              <div className="absolute inset-0 bg-[#10B981]/25 blur-2xl rounded-full" />
+              <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center shadow-lg shadow-[#10B981]/30">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <div className="absolute -bottom-2 -right-2 bg-[#1a3c5e] rounded-lg px-2 py-1 flex items-center gap-1">
+              <div className="absolute -bottom-2 -right-2 bg-[#1a3c5e] rounded-lg px-2 py-1 flex items-center gap-1 shadow-md">
                 <svg className="w-3 h-3 text-[#F97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
