@@ -13,7 +13,10 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
   const t = useTranslations("auth.panel");
   const ta = useTranslations("auth");
   const prefix = locale === "es" ? "" : `/${locale}`;
-  const caps = [t("cap1"), t("cap2"), t("cap3"), t("cap4"), t("cap5"), t("cap6")];
+  const caps = [
+    t("cap1"), t("cap2"), t("cap3"), t("cap4"), t("cap5"), t("cap6"),
+    t("cap7"), t("cap8"), t("cap9"), t("cap10"), t("cap11"), t("cap12"),
+  ];
 
   const features = [
     {
@@ -64,8 +67,8 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
           sizes="50vw"
           className="object-cover object-center"
         />
-        {/* Navy overlay so the content stays readable over the photo */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a3c5e]/92 via-[#1a3c5e]/78 to-[#1a3c5e]/94" />
+        {/* Navy overlay — heavy so the photo stays a subtle texture and the text reads */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a3c5e]/97 via-[#1a3c5e]/92 to-[#16344f]/98" />
 
         {/* Decorative circles */}
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full border border-white/5 bg-white/[0.02]" />
@@ -79,11 +82,11 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
             <p className="text-[#94b8d4] text-xs mt-1.5">{t("tagline")}</p>
           </div>
 
-          {/* Scrollable content area */}
-          <div className="flex-1 flex flex-col gap-5 overflow-y-auto pr-1 -mr-1">
+          {/* Content area — fits without scrolling */}
+          <div className="flex-1 flex flex-col justify-center gap-5">
 
             {/* Features */}
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {features.map((f, i) => (
                 <div key={i} className="flex gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.15)] border border-[rgba(249,115,22,0.3)] flex items-center justify-center shrink-0">
@@ -120,24 +123,6 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
                   <p className="text-[#6a9abf] text-[11px] mt-0.5">{s.label}</p>
                 </div>
               ))}
-            </div>
-
-            {/* Divider */}
-            <div style={{ borderTop: "0.5px solid rgba(255,255,255,0.1)" }} />
-
-            {/* Testimonial */}
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
-                <span className="text-white text-[11px] font-bold">{t("testimonial_initials")}</span>
-              </div>
-              <div>
-                <p className="text-[#94b8d4] text-[12px] italic leading-relaxed">
-                  &ldquo;{t("testimonial_quote")}&rdquo;
-                </p>
-                <p className="text-[#4d7a9e] text-[11px] mt-1.5">
-                  — {t("testimonial_author")}, {t("testimonial_role")}
-                </p>
-              </div>
             </div>
 
           </div>

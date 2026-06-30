@@ -222,6 +222,12 @@
       "cap4": "Recordatorios automáticos",
       "cap5": "Certificado + huella SHA-256",
       "cap6": "Español / Inglés",
+      "cap7": "Dibuja o sube tu firma",
+      "cap8": "Importa firmantes desde contactos",
+      "cap9": "Geolocalización antifraude",
+      "cap10": "Código de verificación de 4 dígitos",
+      "cap11": "Varios lugares de firma por persona",
+      "cap12": "Descarga con tu nombre real",
       "feature1_title": "100% legal",
       "feature1_desc": "Válido en Centroamérica y Sudamérica",
       "feature2_title": "Firma en minutos",
@@ -235,11 +241,7 @@
       "stat3_value": "10+",
       "stat3_label": "Países activos",
       "stat4_value": "100%",
-      "stat4_label": "Uptime garantizado",
-      "testimonial_quote": "Cerramos contratos 3x más rápido.",
-      "testimonial_author": "Carlos M.",
-      "testimonial_role": "Abogado · Guatemala",
-      "testimonial_initials": "CM"
+      "stat4_label": "Uptime garantizado"
     },
     "register": {
       "meta_title": "Crear cuenta gratis",

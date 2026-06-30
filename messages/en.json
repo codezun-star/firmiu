@@ -222,6 +222,12 @@
       "cap4": "Automatic reminders",
       "cap5": "Certificate + SHA-256 hash",
       "cap6": "Spanish / English",
+      "cap7": "Draw or upload your signature",
+      "cap8": "Import signers from contacts",
+      "cap9": "Anti-fraud geolocation",
+      "cap10": "4-digit verification code",
+      "cap11": "Multiple signing spots per person",
+      "cap12": "Download with your real name",
       "feature1_title": "100% legal",
       "feature1_desc": "Valid in Central and South America",
       "feature2_title": "Sign in minutes",
@@ -235,11 +241,7 @@
       "stat3_value": "10+",
       "stat3_label": "Active countries",
       "stat4_value": "100%",
-      "stat4_label": "Uptime guaranteed",
-      "testimonial_quote": "We close contracts 3x faster.",
-      "testimonial_author": "Carlos M.",
-      "testimonial_role": "Lawyer · Guatemala",
-      "testimonial_initials": "CM"
+      "stat4_label": "Uptime guaranteed"
     },
     "register": {
       "meta_title": "Create Free Account",
