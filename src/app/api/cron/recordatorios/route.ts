@@ -79,7 +79,11 @@ export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET ?? "";
   const auth   = request.headers.get("authorization") ?? "";
 
-  if (secret && auth !== `Bearer ${secret}`) {
+  // Fail CLOSED: never run an unauthenticated cron. If CRON_SECRET is missing we
+  // reject instead of exposing the endpoint publicly (which would let anyone
+  // trigger reminder emails). Vercel injects this Bearer header automatically for
+  // scheduled runs when CRON_SECRET is configured.
+  if (!secret || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

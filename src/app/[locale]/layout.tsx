@@ -1,12 +1,12 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
-import Script from "next/script";
 import { locales } from "@/i18n";
 import type { Locale } from "@/i18n";
 import Toaster from "@/components/Toaster";
 import ConsentBanner from "@/components/ConsentBanner";
 import MaintenanceBanner from "@/components/MaintenanceBanner";
+import Analytics from "@/components/Analytics";
 
 // Google Consent Mode v2 — default everything to "denied" before gtag.js
 // loads, so no analytics/ads cookies are set until the visitor opts in.
@@ -62,13 +62,8 @@ export default async function LocaleLayout({
           <ConsentBanner />
         </NextIntlClientProvider>
 
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-9WDRMFRCCB"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`gtag('config', 'G-9WDRMFRCCB');`}
-        </Script>
+        {/* GA loads everywhere EXCEPT /firmar (token in URL) and /dashboard. */}
+        <Analytics />
       </body>
     </html>
   );

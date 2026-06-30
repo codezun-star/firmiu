@@ -195,7 +195,7 @@ async function createOneDocument(
     }).select("token, id").single();
 
     if (insertError || !firmante) {
-      console.error(`[Firmiu] ERROR insert firmante ${orden} (${correoFirmante}):`, insertError?.message ?? "firmante null");
+      console.error(`[Firmiu] ERROR insert firmante ${orden} (doc: ${docId}):`, insertError?.message ?? "firmante null");
       return;
     }
 
@@ -209,7 +209,8 @@ async function createOneDocument(
     if (effectiveModo === "secuencial" && idx !== 0) return;
 
     const signingUrl = `${appUrl}/firmar/${firmante.token}`;
-    console.log(`[Firmiu] Firmante ${orden}: ${correoFirmante} | token: ${firmante.token} | doc: ${docId}`);
+    // NOTE: never log the token (it grants signing/download) or the signer email
+    // (PII) — these end up in platform logs. Log only non-sensitive identifiers.
 
     try {
       await resend.emails.send({
@@ -229,9 +230,9 @@ async function createOneDocument(
           </p>
         `),
       });
-      console.log(`[Firmiu] Email enviado a firmante ${orden}: ${correoFirmante} (doc: ${docId})`);
+      console.log(`[Firmiu] Email enviado a firmante ${orden} (doc: ${docId})`);
     } catch (err) {
-      console.error(`[Firmiu] ERROR email firmante ${orden} (${correoFirmante}):`, err instanceof Error ? err.message : String(err));
+      console.error(`[Firmiu] ERROR email firmante ${orden} (doc: ${docId}):`, err instanceof Error ? err.message : String(err));
     }
   }));
 

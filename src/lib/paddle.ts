@@ -8,9 +8,6 @@ export async function getPaddle(): Promise<Paddle | undefined> {
   const env = process.env.NEXT_PUBLIC_PADDLE_ENV;
   const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
 
-  console.log("[paddle] environment:", env);
-  console.log("[paddle] token prefix:", token?.slice(0, 10));
-
   paddleInstance = await initializePaddle({
     environment: env === "production" ? "production" : "sandbox",
     token: token!,
@@ -32,7 +29,6 @@ export async function openCheckout(
   email: string,
   userId: string
 ): Promise<void> {
-  console.log("[paddle] abriendo checkout con:", { priceId, email, userId });
   const paddle = await getPaddle();
   if (!paddle) {
     console.error("[paddle] no se pudo inicializar");
