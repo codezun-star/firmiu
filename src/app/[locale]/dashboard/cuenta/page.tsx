@@ -19,11 +19,11 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
   const isGoogle = user?.app_metadata?.provider === "google";
   const userId   = user?.id ?? "";
 
-  // Docs count this calendar month — filtered by owner
+  // Rows created this calendar month (used only for the free plan)
   const ahora = new Date();
   const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString();
 
-  const { count: docsThisMonth } = await supabase
+  const { count: rowsThisMonth } = await supabase
     .from("documentos")
     .select("id", { count: "exact", head: true })
     .eq("owner_id", userId)
@@ -32,7 +32,7 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
   // Subscription (gracefully handles migration not applied yet)
   const { data: sub } = await supabase
     .from("suscripciones")
-    .select("plan, limite_documentos, estado, periodo_inicio, periodo_fin")
+    .select("plan, limite_documentos, estado, documentos_mes, periodo_inicio, periodo_fin")
     .eq("owner_id", userId)
     .maybeSingle();
 
@@ -40,6 +40,11 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
   const plan         = isPaidActive ? (sub?.plan ?? "free") : "free";
   const docsLimit    = isPaidActive ? (sub?.limite_documentos ?? 3) : 3;
   const estado       = sub?.estado ?? "none";
+  // Consumo real del mes: en planes de pago es el contador `documentos_mes`
+  // (cuenta cada PDF fusionado); en Free es el número de filas (Free no fusiona).
+  const docsThisMonth = isPaidActive
+    ? ((sub?.documentos_mes as number | null) ?? 0)
+    : (rowsThisMonth ?? 0);
   const periodoInicio = isPaidActive ? ((sub?.periodo_inicio as string | null) ?? null) : null;
   const periodoFin    = isPaidActive ? ((sub?.periodo_fin as string | null) ?? null) : null;
 
