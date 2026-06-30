@@ -420,7 +420,7 @@
     "add_signer": "Agregar firmante",
     "signer_n": "Firmante {n}",
     "remove_signer": "Quitar",
-    "position_hint": "Haz clic en el documento para agregar una zona de firma del firmante activo. Puedes agregar varias (también en otras páginas), arrastrarlas para moverlas o quitarlas con la ✕.",
+    "position_hint": "Haz clic para agregar una zona de firma. La firma se apoya en la LÍNEA INFERIOR del recuadro — alinéala con la línea de firma del documento. Arrastra para mover; la ✕ la quita.",
     "position_placed": "Colocado en pág. {n}",
     "position_not_placed": "Sin posicionar",
     "position_active": "Haz clic para agregar una firma del Firmante {n}",
@@ -486,7 +486,8 @@
       "signers_data_invalid": "Datos de firmantes inválidos.",
       "position_required": "Posiciona la firma de todos los firmantes en el PDF.",
       "email_duplicate": "Este correo ya fue agregado como firmante.",
-      "batch_limit_reached": "Alcanzaste el máximo de documentos por envío de tu plan."
+      "batch_limit_reached": "Alcanzaste el máximo de documentos por envío de tu plan.",
+      "files_limit_reached": "Solo puedes enviar hasta {max} documento(s) ahora (límite de tu plan o cupo mensual restante)."
     }
   },
   "sign": {

@@ -201,6 +201,9 @@ export default function PdfPosicionador({
   }, [renderPage, currentPage, pdfFailed]);
 
   // ── Add a field for the active signer by clicking the document ──
+  // Horizontally the click is the CENTER of the box; vertically the click is the
+  // box's BOTTOM (the baseline) — so clicking on a signature line lands the
+  // signature resting on that line.
   function posFromPoint(clientX: number, clientY: number, rect: DOMRect): PosicionFirma {
     const clickX = clientX - rect.left;
     const clickY = clientY - rect.top;
@@ -209,7 +212,7 @@ export default function PdfPosicionador({
     return {
       pagina: currentPage,
       campo_x: Math.max(0, Math.min(1 - FIELD_W, (clickX - fw / 2) / rect.width)),
-      campo_y: Math.max(0, Math.min(1 - FIELD_H, (clickY - fh / 2) / rect.height)),
+      campo_y: Math.max(0, Math.min(1 - FIELD_H, (clickY - fh) / rect.height)),
       campo_ancho: FIELD_W,
       campo_alto: FIELD_H,
     };
@@ -294,6 +297,8 @@ export default function PdfPosicionador({
           onPointerCancel={onBoxPointerUp}
         >
           <span className="text-[11px] font-bold px-1 pointer-events-none" style={{ color: style.color }}>{si + 1}</span>
+          {/* Baseline — the signature rests here; align it with the document's line */}
+          <div className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full pointer-events-none" style={{ background: style.borderColor }} />
           {/* Remove this field */}
           <button type="button"
             onPointerDown={(e) => e.stopPropagation()}

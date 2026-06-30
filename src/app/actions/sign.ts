@@ -104,9 +104,13 @@ function drawSignatureOnPage(
   const sigW = pngImage.width * scale;
   const sigH = pngImage.height * scale;
 
+  // Anchor the signature to the BOTTOM of the field (it rests on the field's
+  // bottom edge, like a real signature on a line) instead of centering it
+  // vertically — so when the owner aligns the field's bottom with the document's
+  // signature line, the signature lands exactly on the line (not floating high).
   page.drawImage(pngImage, {
     x: x + (fieldW - sigW) / 2,
-    y: y + (fieldH - sigH) / 2,
+    y: y + pad,
     width: sigW,
     height: sigH,
   });

@@ -93,7 +93,13 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
     if (!list) return;
     const pdfs = Array.from(list).filter(isPdf);
     if (pdfs.length === 0) return;
-    setErrorKey(null);
+    // Warn instead of silently dropping when the selection exceeds what the plan
+    // (batch limit) or the remaining monthly quota allows.
+    if (files.length + pdfs.length > maxBatch) {
+      setErrorKey("files_limit_reached");
+    } else {
+      setErrorKey(null);
+    }
     setFiles(prev => [...prev, ...pdfs].slice(0, maxBatch));
   }
 
@@ -570,7 +576,7 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
               <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {t(`errors.${errorKey}`)}
+              {t(`errors.${errorKey}` as Parameters<typeof t>[0], { max: maxBatch })}
             </div>
           )}
         </div>

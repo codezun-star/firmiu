@@ -420,7 +420,7 @@
     "add_signer": "Add signer",
     "signer_n": "Signer {n}",
     "remove_signer": "Remove",
-    "position_hint": "Click on the document to add a signature spot for the active signer. You can add several (on any page), drag them to move, or remove them with the ✕.",
+    "position_hint": "Click to add a signature spot. The signature rests on the box's BOTTOM LINE — align it with the document's signature line. Drag to move; the ✕ removes it.",
     "position_placed": "Placed on p. {n}",
     "position_not_placed": "Not positioned",
     "position_active": "Click to add a signature for Signer {n}",
@@ -486,7 +486,8 @@
       "signers_data_invalid": "Invalid signer data.",
       "position_required": "Position the signature for all signers in the PDF.",
       "email_duplicate": "This email has already been added as a signer.",
-      "batch_limit_reached": "You've reached the maximum number of documents per batch for your plan."
+      "batch_limit_reached": "You've reached the maximum number of documents per batch for your plan.",
+      "files_limit_reached": "You can only send up to {max} document(s) now (your plan limit or remaining monthly quota)."
     }
   },
   "sign": {
