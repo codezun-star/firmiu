@@ -56,6 +56,17 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
     <div className="min-h-screen flex">
       {/* ── Left panel (hidden on mobile) ─────────────────── */}
       <div className="hidden lg:flex w-1/2 bg-[#1a3c5e] flex-col relative overflow-hidden shrink-0">
+        {/* Background image (vertical, fits the tall panel — like the home hero) */}
+        <Image
+          src="/auth.jpg"
+          alt="Profesional usando Firmiu"
+          fill
+          sizes="50vw"
+          className="object-cover object-center"
+        />
+        {/* Navy overlay so the content stays readable over the photo */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a3c5e]/92 via-[#1a3c5e]/78 to-[#1a3c5e]/94" />
+
         {/* Decorative circles */}
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full border border-white/5 bg-white/[0.02]" />
         <div className="absolute top-32 -right-8 w-36 h-36 rounded-full border border-[#F97316]/10 bg-[#F97316]/[0.04]" />
@@ -127,18 +138,6 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
                   — {t("testimonial_author")}, {t("testimonial_role")}
                 </p>
               </div>
-            </div>
-
-            {/* Professions image — at the bottom */}
-            <div className="relative rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-lg shrink-0 mt-auto">
-              <Image
-                src="/hero.jpg"
-                alt="Profesionales de distintos rubros usando Firmiu"
-                width={560}
-                height={300}
-                className="w-full h-44 object-cover object-top"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#1a3c5e]/40 to-transparent" />
             </div>
 
           </div>
