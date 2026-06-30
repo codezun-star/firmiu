@@ -74,7 +74,7 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(135deg, rgba(26,60,94,0.90) 0%, rgba(22,52,79,0.94) 50%, rgba(18,44,68,0.96) 100%)",
+              "linear-gradient(135deg, rgba(26,60,94,0.78) 0%, rgba(22,52,79,0.84) 50%, rgba(18,44,68,0.88) 100%)",
           }}
         />
 
