@@ -15,7 +15,7 @@ export default function Hero({ locale }: HeroProps) {
       {/* Full-bleed background image (business team) */}
       <Image
         src="/hero.jpg"
-        alt="Equipo de empresarios firmando documentos digitalmente con Firmiu"
+        alt="Profesionales de distintos rubros firmando documentos digitalmente con Firmiu"
         fill
         priority
         sizes="100vw"

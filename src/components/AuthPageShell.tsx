@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import AuthLanguageSwitcher from "./AuthLanguageSwitcher";
 import Logo from "./Logo";
@@ -68,7 +69,19 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
           </div>
 
           {/* Scrollable content area */}
-          <div className="flex-1 flex flex-col gap-5">
+          <div className="flex-1 flex flex-col gap-5 overflow-y-auto pr-1 -mr-1">
+
+            {/* Professions image */}
+            <div className="relative rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-lg shrink-0">
+              <Image
+                src="/hero.jpg"
+                alt="Profesionales de distintos rubros usando Firmiu"
+                width={560}
+                height={220}
+                className="w-full h-36 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1a3c5e]/55 to-transparent" />
+            </div>
 
             {/* Features */}
             <div className="space-y-4">

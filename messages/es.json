@@ -458,6 +458,7 @@
     "batch_hint": "Tu plan permite enviar hasta {max} documentos a la vez.",
     "select_multiple_hint": "Selecciona uno o varios PDF (hasta {max}); se unirán en un solo documento.",
     "merge_hint": "Se unirán en un solo documento, en este orden.",
+    "consumption_notice": "Se consumirán {n} de tu cupo mensual (uno por documento).",
     "merging": "Uniendo documentos…",
     "fields_count": "{n} firma(s)",
     "no_fields": "Sin colocar",

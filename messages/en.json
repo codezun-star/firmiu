@@ -458,6 +458,7 @@
     "batch_hint": "Your plan allows sending up to {max} documents at once.",
     "select_multiple_hint": "Select one or more PDFs (up to {max}); they'll be merged into a single document.",
     "merge_hint": "They'll be merged into a single document, in this order.",
+    "consumption_notice": "This will use {n} of your monthly quota (one per document).",
     "merging": "Merging documents…",
     "fields_count": "{n} signature(s)",
     "no_fields": "Not placed",

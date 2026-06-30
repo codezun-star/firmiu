@@ -306,7 +306,15 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
               </div>
             ))}
             {files.length > 1 && (
-              <p className="text-[11px] text-[#9CA3AF] pt-1">{t("merge_hint")}</p>
+              <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-[9px] bg-[#FFF7ED] border border-[#FED7AA]">
+                <svg className="w-4 h-4 text-[#F97316] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-[12px] font-medium text-[#9A3412]">{t("consumption_notice", { n: files.length })}</p>
+                  <p className="text-[11px] text-[#C2410C]/80 mt-0.5">{t("merge_hint")}</p>
+                </div>
+              </div>
             )}
           </div>
         )}
