@@ -30,24 +30,28 @@ export default function ExitoPage({ params: { locale }, searchParams }: ExitoPag
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
 
-          {/* Success icon with audit badge */}
-          <div className="flex justify-center mb-6">
+          {/* Success icon — big, clear checkmark */}
+          <div className="flex justify-center mb-4">
             <div className="relative">
               {/* Soft glow */}
               <div className="absolute inset-0 bg-[#10B981]/25 blur-2xl rounded-full" />
-              <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center shadow-lg shadow-[#10B981]/30">
-                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              <div className="relative w-[88px] h-[88px] rounded-full bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center shadow-lg shadow-[#10B981]/30 ring-4 ring-[#10B981]/15">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
-              </div>
-              <div className="absolute -bottom-2 -right-2 bg-[#1a3c5e] rounded-lg px-2 py-1 flex items-center gap-1 shadow-md">
-                <svg className="w-3 h-3 text-[#F97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                <span className="text-white text-[9px] font-semibold">{t("audit")}</span>
               </div>
             </div>
+          </div>
+
+          {/* Audit confirmation pill (below, no overlap) */}
+          <div className="flex justify-center mb-5">
+            <span className="inline-flex items-center gap-1.5 bg-[#1a3c5e] text-white text-[11px] font-medium px-3 py-1.5 rounded-full">
+              <svg className="w-3.5 h-3.5 text-[#F97316] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              {t("audit")}
+            </span>
           </div>
 
           {/* Title */}

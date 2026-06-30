@@ -32,7 +32,7 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
   // Subscription (gracefully handles migration not applied yet)
   const { data: sub } = await supabase
     .from("suscripciones")
-    .select("plan, limite_documentos, estado")
+    .select("plan, limite_documentos, estado, periodo_inicio, periodo_fin")
     .eq("owner_id", userId)
     .maybeSingle();
 
@@ -40,6 +40,8 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
   const plan         = isPaidActive ? (sub?.plan ?? "free") : "free";
   const docsLimit    = isPaidActive ? (sub?.limite_documentos ?? 3) : 3;
   const estado       = sub?.estado ?? "none";
+  const periodoInicio = isPaidActive ? ((sub?.periodo_inicio as string | null) ?? null) : null;
+  const periodoFin    = isPaidActive ? ((sub?.periodo_fin as string | null) ?? null) : null;
 
   return (
     <SettingsClient
@@ -52,6 +54,8 @@ export default async function CuentaPage({ params: { locale } }: CuentaPageProps
       plan={plan}
       docsLimit={docsLimit}
       estado={estado}
+      periodoInicio={periodoInicio}
+      periodoFin={periodoFin}
     />
   );
 }

@@ -188,6 +188,7 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
       formData.append("pdf", merged!);
       formData.append("locale", locale);
       formData.append("modo", modo);
+      formData.append("count", String(Math.max(1, files.length))); // PDFs fusionados → consumo mensual
       formData.append("firmantes", JSON.stringify(firmantes.map(f => {
         const first = f.posiciones[0];
         return {

@@ -263,6 +263,9 @@ export async function uploadDocumentMultiAction(
   if (validationError) return { errorKey: validationError, success: false };
 
   const modo = parseModo(formData.get("modo"));
+  // Number of PDFs the user merged into this one document. Each one counts against
+  // the monthly quota (so merging 3 PDFs consumes 3, not 1).
+  const archivos = Math.min(50, Math.max(1, parseInt((formData.get("count") as string) ?? "1", 10) || 1));
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -270,7 +273,7 @@ export async function uploadDocumentMultiAction(
 
   const admin = createAdminClient();
   const { subId, remaining } = await resolvePlanLimits(admin, supabase, user.id);
-  if (remaining <= 0) return { errorKey: "plan_limit_reached", success: false };
+  if (remaining < archivos) return { errorKey: "plan_limit_reached", success: false };
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const ownerName = escapeHtml((user.user_metadata?.nombre as string | undefined) ?? "Alguien");
@@ -278,7 +281,11 @@ export async function uploadDocumentMultiAction(
   const ok = await createOneDocument(admin, supabase, user.id, appUrl, ownerName, pdfFile as File, firmantes, modo);
   if (!ok) return { errorKey: "upload_failed", success: false };
 
-  if (subId) await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
+  // Count each merged PDF against the monthly counter (paid plans). The free plan
+  // counts documentos rows; free can't merge (1 file max), so a row = 1 file.
+  if (subId) {
+    for (let i = 0; i < archivos; i++) await admin.rpc("increment_documentos_mes", { p_sub_id: subId });
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/documentos");

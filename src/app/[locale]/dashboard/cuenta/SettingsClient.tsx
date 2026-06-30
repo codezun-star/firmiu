@@ -18,6 +18,8 @@ interface Props {
   plan: string;
   docsLimit: number;
   estado: string;
+  periodoInicio: string | null;
+  periodoFin: string | null;
 }
 
 function initials(name: string) {
@@ -83,6 +85,8 @@ export default function SettingsClient({
   plan,
   docsLimit,
   estado,
+  periodoInicio,
+  periodoFin,
 }: Props) {
   const t = useTranslations("settings");
   const router = useRouter();
@@ -200,6 +204,20 @@ export default function SettingsClient({
   const pct = docsLimit > 0 ? Math.min((docsThisMonth / docsLimit) * 100, 100) : 100;
   const barColor = pct >= 100 ? "#EF4444" : pct >= 66 ? "#F97316" : "#10B981";
 
+  // ── Billing cycle (renewal / end date) ──
+  const intlLocale = locale === "en" ? "en" : "es";
+  const finDate = periodoFin ? new Date(periodoFin) : null;
+  const inicioDate = periodoInicio
+    ? new Date(periodoInicio)
+    : (finDate ? new Date(finDate.getTime() - 30 * 86400000) : null); // estimate a 30-day cycle if start missing
+  const nowDate = new Date();
+  const daysLeft = finDate ? Math.max(0, Math.ceil((finDate.getTime() - nowDate.getTime()) / 86400000)) : 0;
+  const cyclePct = finDate && inicioDate && finDate.getTime() > inicioDate.getTime()
+    ? Math.min(100, Math.max(0, ((nowDate.getTime() - inicioDate.getTime()) / (finDate.getTime() - inicioDate.getTime())) * 100))
+    : 0;
+  const fmtDate = (d: Date) => d.toLocaleDateString(intlLocale, { day: "numeric", month: "long", year: "numeric" });
+  const fmtShort = (d: Date) => d.toLocaleDateString(intlLocale, { day: "numeric", month: "short" });
+
   return (
     <div className="p-5 md:p-6 max-w-2xl mx-auto space-y-5">
 
@@ -303,6 +321,41 @@ export default function SettingsClient({
               }}
             />
           </div>
+
+          {/* Billing cycle — when the plan renews / ends */}
+          {plan !== "free" && finDate && (
+            <div className="mb-6 rounded-[10px] border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-white border border-[#E5E7EB] flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-[#1a3c5e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] text-[#9CA3AF] leading-tight">
+                    {estado === "canceling" ? t("billing_ends_label") : t("billing_renews_label")}
+                  </p>
+                  <p className="text-[13px] font-semibold text-[#111827]">{fmtDate(finDate)}</p>
+                </div>
+                <span className="ml-auto text-[11px] font-medium text-[#6B7280] shrink-0">
+                  {t("billing_days_left", { n: daysLeft })}
+                </span>
+              </div>
+              {inicioDate && (
+                <>
+                  <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${cyclePct}%`, backgroundColor: estado === "canceling" ? "#F97316" : "#1a3c5e" }} />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-[#9CA3AF] mt-1.5">
+                    <span>{fmtShort(inicioDate)}</span>
+                    <span>{fmtShort(finDate)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Cancel subscription — only for paid plans */}
           {plan !== "free" && (
