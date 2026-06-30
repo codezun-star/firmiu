@@ -67,8 +67,16 @@ export default function AuthPageShell({ locale, children }: AuthPageShellProps) 
           sizes="50vw"
           className="object-cover object-center"
         />
-        {/* Navy overlay — heavy so the photo stays a subtle texture and the text reads */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a3c5e]/97 via-[#1a3c5e]/92 to-[#16344f]/98" />
+        {/* Navy overlay — inline rgba (NOT Tailwind opacity classes, which didn't
+            compile for the arbitrary gradient) so the photo stays a faint texture
+            and every text/label is readable on top. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(26,60,94,0.90) 0%, rgba(22,52,79,0.94) 50%, rgba(18,44,68,0.96) 100%)",
+          }}
+        />
 
         {/* Decorative circles */}
         <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full border border-white/5 bg-white/[0.02]" />
