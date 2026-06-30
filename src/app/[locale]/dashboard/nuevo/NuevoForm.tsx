@@ -218,7 +218,7 @@ export default function NuevoForm({ locale, defaultNombre = "", defaultCorreo = 
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merged, firmantes, modo, locale, t]);
+  }, [files, merged, firmantes, modo, locale, t]);
 
   const steps = [t("step_upload"), t("step_position"), t("step_signers")];
   const wrapperClass = step === 1 ? "max-w-6xl mx-auto" : "max-w-5xl mx-auto";
