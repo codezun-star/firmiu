@@ -70,12 +70,12 @@ export default function Navbar() {
             >
               {t("features")}
             </a>
-            <a
-              href={`${prefix}/#planes`}
+            <Link
+              href={`${prefix}/precios`}
               className="text-sm text-[#94b8d4] hover:text-white transition-colors"
             >
               {t("pricing")}
-            </a>
+            </Link>
             <Link
               href={`${prefix}/nosotros`}
               className="text-sm text-[#94b8d4] hover:text-white transition-colors"
@@ -136,13 +136,13 @@ export default function Navbar() {
             >
               {t("features")}
             </a>
-            <a
-              href={`${prefix}/#planes`}
+            <Link
+              href={`${prefix}/precios`}
               onClick={() => setOpen(false)}
               className="block px-3 py-2.5 text-sm text-[#94b8d4] hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
             >
               {t("pricing")}
-            </a>
+            </Link>
             <Link
               href={`${prefix}/nosotros`}
               onClick={() => setOpen(false)}

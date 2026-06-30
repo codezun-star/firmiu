@@ -42,9 +42,9 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href={`${prefix}/#planes`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
+                <Link href={`${prefix}/precios`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">
                   {t("pricing_link")}
-                </a>
+                </Link>
               </li>
               <li>
                 <Link href={`${prefix}/firma-electronica`} className="text-[#6a9abf] hover:text-white text-sm transition-colors">

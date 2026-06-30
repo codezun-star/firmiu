@@ -143,7 +143,7 @@ export default async function HomePage({ params: { locale } }: HomePageProps) {
           {
             "@type": "Offer",
             name: "Starter",
-            price: "9",
+            price: "15",
             priceCurrency: "USD",
             description: locale === "es" ? "30 documentos por mes" : "30 documents per month",
             billingIncrement: 1,
@@ -153,7 +153,7 @@ export default async function HomePage({ params: { locale } }: HomePageProps) {
           {
             "@type": "Offer",
             name: "Pro",
-            price: "19",
+            price: "29",
             priceCurrency: "USD",
             description: locale === "es" ? "100 documentos por mes" : "100 documents per month",
             billingIncrement: 1,
@@ -163,7 +163,7 @@ export default async function HomePage({ params: { locale } }: HomePageProps) {
           {
             "@type": "Offer",
             name: "Business",
-            price: "39",
+            price: "59",
             priceCurrency: "USD",
             description: locale === "es" ? "Documentos ilimitados por mes" : "Unlimited documents per month",
             billingIncrement: 1,
