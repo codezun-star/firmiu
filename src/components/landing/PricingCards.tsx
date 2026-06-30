@@ -7,7 +7,10 @@ interface PricingCardsProps {
   locale: string;
 }
 
-const planKeys = ["free", "starter", "pro", "business"] as const;
+// Business is hidden for now (not offered yet). Re-enable by adding "business"
+// back to this list (and set SHOW_BUSINESS = true in PricingTable). The card
+// already supports the "coming soon" state below.
+const planKeys = ["free", "starter", "pro"] as const;
 
 const PRICE_IDS: Record<string, string | null> = {
   free:     null,
@@ -35,12 +38,13 @@ export default function PricingCards({ locale }: PricingCardsProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl mx-auto">
       {planKeys.map((key) => {
         const isPro = key === "pro";
-        // Business está deshabilitado por ahora: se muestra como "Próximamente"
-        // sin precio, sin funcionalidades y sin botón de compra.
-        const isComingSoon = key === "business";
+        // Business is hidden for now (removed from planKeys above). This branch is
+        // kept so re-adding "business" to planKeys brings back the "coming soon"
+        // card with no extra work. Cast avoids a no-overlap type error meanwhile.
+        const isComingSoon = (key as string) === "business";
         const features = isComingSoon ? [] : (t.raw(`${key}.features`) as string[]);
 
         return (

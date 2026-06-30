@@ -139,7 +139,7 @@
         "price": "29",
         "desc": "For growing businesses",
         "features": [
-          "100 documents per month",
+          "60 documents per month",
           "Up to 10 PDFs per send",
           "Everything in Starter",
           "Priority support"
@@ -227,6 +227,9 @@
     "support_email": "Email",
     "support_priority": "Priority",
     "support_premium": "24/7 + manager",
+    "more_volume_title": "Need more volume?",
+    "more_volume_desc": "If your business outgrows the Pro plan, contact us and we'll set up a custom plan.",
+    "more_volume_cta": "Contact us",
     "cta_title": "Ready to sign without printing?",
     "cta_subtitle": "Start free today. No credit card required.",
     "cta_button": "Create free account"
@@ -667,7 +670,7 @@
     "upgrade_title": "Upgrade your plan",
     "upgrade_highlight": "{docs} documents/mo · {pdfs} PDFs per send",
     "compare_plans": "Compare all plans",
-    "top_plan": "You're on the highest available plan.",
+    "top_plan": "You're on the highest plan. Need more volume? Contact us:",
     "plan_title": "Plan & usage",
     "plan_free": "Free",
     "plan_starter": "Starter",
@@ -705,7 +708,7 @@
     "starter_f3": "Automatic 48h reminders",
     "starter_f4": "Everything in Free",
     "starter_f5": "Priority support",
-    "pro_f1": "100 documents per month",
+    "pro_f1": "60 documents per month",
     "pro_f2": "Up to 10 PDFs per send",
     "pro_f3": "Everything in Starter",
     "pro_f4": "Priority support",

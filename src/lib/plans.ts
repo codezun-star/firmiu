@@ -32,7 +32,10 @@ export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
   // signed. Free has none, which is a reason to upgrade to any paid plan.
   free:     { monthly: 3,         batch: 1,  reminders: false },
   starter:  { monthly: 30,        batch: 5,  reminders: true },
-  pro:      { monthly: 100,       batch: 10, reminders: true },
+  pro:      { monthly: 60,        batch: 10, reminders: true },
+  // Business is NOT shown in the UI for now (see SHOW_BUSINESS in PricingTable and
+  // the planKeys list in PricingCards). The limits stay here so the backend keeps
+  // working if a Business subscription ever exists / when it's re-enabled.
   business: { monthly: UNLIMITED, batch: 20, reminders: true },
 };
 

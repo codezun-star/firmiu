@@ -503,7 +503,12 @@ export default function SettingsClient({
                 ))}
               </div>
             ) : (
-              <p className="text-[12px] text-[#9CA3AF]">{t("top_plan")}</p>
+              <p className="text-[12px] text-[#9CA3AF]">
+                {t("top_plan")}{" "}
+                <a href="mailto:codezun@gmail.com" className="font-medium text-[#1a3c5e] hover:text-[#F97316] transition-colors">
+                  codezun@gmail.com
+                </a>
+              </p>
             )}
           </div>
         </div>

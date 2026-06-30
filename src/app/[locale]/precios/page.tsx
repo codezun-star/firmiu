@@ -104,8 +104,26 @@ export default async function PreciosPage({ params: { locale } }: PreciosPagePro
             </div>
           </div>
 
+          {/* Need more volume than Pro → contact (replaces the Business plan for now) */}
+          <div className="mt-10 rounded-2xl border-[0.5px] border-[#E5E7EB] bg-white p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-[15px] font-semibold text-[#111827]">{t("more_volume_title")}</p>
+              <p className="text-sm text-[#6B7280] mt-1">{t("more_volume_desc")}</p>
+            </div>
+            <a
+              href="mailto:codezun@gmail.com"
+              className="shrink-0 inline-flex items-center gap-2 bg-[#1a3c5e] hover:bg-[#15304d] text-white text-sm font-semibold px-5 py-2.5 rounded-[10px] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              {t("more_volume_cta")}
+            </a>
+          </div>
+
           {/* Final CTA */}
-          <div className="mt-16 bg-[#1a3c5e] rounded-2xl px-6 py-10 text-center">
+          <div className="mt-10 bg-[#1a3c5e] rounded-2xl px-6 py-10 text-center">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">{t("cta_title")}</h2>
             <p className="text-[#94b8d4] text-sm mb-6">{t("cta_subtitle")}</p>
             <Link

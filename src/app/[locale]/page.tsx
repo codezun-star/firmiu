@@ -155,21 +155,12 @@ export default async function HomePage({ params: { locale } }: HomePageProps) {
             name: "Pro",
             price: "29",
             priceCurrency: "USD",
-            description: locale === "es" ? "100 documentos por mes" : "100 documents per month",
+            description: locale === "es" ? "60 documentos por mes" : "60 documents per month",
             billingIncrement: 1,
             priceSpecification: { "@type": "UnitPriceSpecification", unitCode: "MON" },
             eligibleRegion: LATAM_COUNTRIES.map((name) => ({ "@type": "Country", name })),
           },
-          {
-            "@type": "Offer",
-            name: "Business",
-            price: "59",
-            priceCurrency: "USD",
-            description: locale === "es" ? "Documentos ilimitados por mes" : "Unlimited documents per month",
-            billingIncrement: 1,
-            priceSpecification: { "@type": "UnitPriceSpecification", unitCode: "MON" },
-            eligibleRegion: LATAM_COUNTRIES.map((name) => ({ "@type": "Country", name })),
-          },
+          // Business plan is hidden for now (not offered yet) — no Offer listed.
         ],
         description: descriptions[locale] ?? descriptions.es,
         featureList: locale === "es"
