@@ -51,7 +51,7 @@ const PLANS = [
     bg: "#EFF6FF",
     border: "#BFDBFE",
     popular: false,
-    featureKeys: ["starter_f1", "starter_f2", "starter_f3", "starter_f4", "starter_f5", "starter_f6", "starter_f7"],
+    featureKeys: ["starter_f1", "starter_f2", "starter_f3", "starter_f4", "starter_f5"],
   },
   {
     key: "pro",
@@ -61,7 +61,7 @@ const PLANS = [
     bg: "#1a3c5e",
     border: "#1a3c5e",
     popular: true,
-    featureKeys: ["pro_f1", "pro_f2", "pro_f3", "pro_f4", "pro_f5"],
+    featureKeys: ["pro_f1", "pro_f2", "pro_f3", "pro_f4"],
   },
   {
     key: "business",

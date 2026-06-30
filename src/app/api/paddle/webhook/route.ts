@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 // Price ID → plan mapping, built from the SAME env vars the checkout uses.
 // CRÍTICO: los price IDs de Paddle sandbox y producción son DISTINTOS. Si se
@@ -12,9 +13,9 @@ function buildPricePlan(): Record<string, { plan: string; limit: number }> {
   const s = process.env.NEXT_PUBLIC_PADDLE_PRICE_STARTER;
   const p = process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO;
   const b = process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS;
-  if (s) map[s] = { plan: "starter", limit: 30 };
-  if (p) map[p] = { plan: "pro", limit: 100 };
-  if (b) map[b] = { plan: "business", limit: 999999 };
+  if (s) map[s] = { plan: "starter", limit: PLAN_LIMITS.starter.monthly };
+  if (p) map[p] = { plan: "pro", limit: PLAN_LIMITS.pro.monthly };
+  if (b) map[b] = { plan: "business", limit: PLAN_LIMITS.business.monthly };
   return map;
 }
 const PRICE_PLAN = buildPricePlan();
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
     if (!PRICE_PLAN[priceId]) {
       console.error("[paddle-webhook] priceId NO reconocido — revisa NEXT_PUBLIC_PADDLE_PRICE_* en este entorno:", priceId);
     }
-    const planInfo = PRICE_PLAN[priceId] ?? { plan: "starter", limit: 30 };
+    const planInfo = PRICE_PLAN[priceId] ?? { plan: "starter", limit: PLAN_LIMITS.starter.monthly };
 
     let ownerId = data.custom_data?.owner_id;
 
@@ -212,7 +213,7 @@ export async function POST(request: NextRequest) {
       .update({
         estado:            "canceled",
         plan:              "free",
-        limite_documentos: 3,
+        limite_documentos: PLAN_LIMITS.free.monthly,
         actualizado_en:    new Date().toISOString(),
       })
       .eq("paddle_subscription_id", data.id);

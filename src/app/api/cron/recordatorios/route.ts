@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { escapeHtml } from "@/lib/security";
+import { REMINDER_PLANS } from "@/lib/plans";
 
 const REMINDER_HOURS = 48;
 
@@ -109,12 +110,13 @@ export async function GET(request: NextRequest) {
   // Get unique owner IDs
   const ownerIds = Array.from(new Set(docs.map((d) => d.owner_id)));
 
-  // Fetch subscriptions for those owners — only pro and business plans are eligible
+  // Fetch subscriptions for those owners — only reminder-eligible plans (Pro,
+  // Business) get automatic 48h reminders. Source of truth: lib/plans.ts.
   const { data: subs } = await admin
     .from("suscripciones")
     .select("owner_id, plan, estado")
     .in("owner_id", ownerIds)
-    .in("plan", ["pro", "business"])
+    .in("plan", REMINDER_PLANS)
     .eq("estado", "active");
 
   const eligibleOwners = new Set((subs ?? []).map((s) => s.owner_id));

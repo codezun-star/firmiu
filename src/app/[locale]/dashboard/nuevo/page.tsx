@@ -3,9 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import Link from "next/link";
 import NuevoForm from "./NuevoForm";
 import { createClient } from "@/lib/supabase/server";
-
-// Per-plan cap on documents per batch (mirrors BATCH_LIMITS in actions/documents.ts).
-const BATCH_LIMITS: Record<string, number> = { free: 1, starter: 5, pro: 20, business: 50 };
+import { PLAN_LIMITS, planLimits } from "@/lib/plans";
 
 interface NuevoPageProps {
   params: { locale: string };
@@ -111,8 +109,8 @@ export default async function NuevoPage({ params: { locale }, searchParams }: Nu
       sub?.estado === "canceling" && (!sub.periodo_fin || new Date(sub.periodo_fin as string) > new Date());
     if (sub && (sub.estado === "active" || cancelingValid)) {
       const planKey = (sub.plan as string) ?? "free";
-      batchLimit = BATCH_LIMITS[planKey] ?? 1;
-      monthlyRemaining = Math.max(0, ((sub.limite_documentos as number) ?? 3) - ((sub.documentos_mes as number) ?? 0));
+      batchLimit = planLimits(planKey).batch;
+      monthlyRemaining = Math.max(0, ((sub.limite_documentos as number) ?? PLAN_LIMITS.free.monthly) - ((sub.documentos_mes as number) ?? 0));
     } else {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
@@ -121,8 +119,8 @@ export default async function NuevoPage({ params: { locale }, searchParams }: Nu
         .from("documentos")
         .select("id", { count: "exact", head: true })
         .gte("creado_en", startOfMonth.toISOString());
-      batchLimit = BATCH_LIMITS.free;
-      monthlyRemaining = Math.max(0, 3 - (count ?? 0));
+      batchLimit = PLAN_LIMITS.free.batch;
+      monthlyRemaining = Math.max(0, PLAN_LIMITS.free.monthly - (count ?? 0));
     }
   }
   const maxBatch = Math.min(batchLimit, Math.max(1, monthlyRemaining));

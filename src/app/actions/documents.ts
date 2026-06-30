@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { escapeHtml, isValidEmail, isValidUUID, sanitizeText } from "@/lib/security";
 import { emailShell, codeBox, ctaButton } from "@/lib/email";
 import { getPrefix } from "@/lib/utils";
+import { PLAN_LIMITS, planLimits } from "@/lib/plans";
 
 /**
  * Verify the file is really a PDF by its magic bytes, not just the extension
@@ -44,10 +45,6 @@ export interface FirmanteInput {
   // All signature spots for this signer (a signer can sign in several places).
   campos?: CampoFirma[];
 }
-
-/** Per-plan cap on how many documents can be uploaded in a SINGLE batch. The
- *  monthly quota (suscripciones.limite_documentos) still applies on top of this. */
-const BATCH_LIMITS: Record<string, number> = { free: 1, starter: 5, pro: 20, business: 50 };
 
 /** Validate one document's file + signers. Returns an errorKey, or null if OK. */
 async function validateDocInput(
@@ -90,17 +87,17 @@ async function resolvePlanLimits(
   const cancelingValid = sub?.estado === "canceling" && (!sub.periodo_fin || new Date(sub.periodo_fin as string) > new Date());
   if (!subError && sub && (sub.estado === "active" || cancelingValid)) {
     const planKey = (sub.plan as string) ?? "free";
-    const limit = (sub.limite_documentos as number) ?? 3;
+    const limit = (sub.limite_documentos as number) ?? PLAN_LIMITS.free.monthly;
     const used = (sub.documentos_mes as number) ?? 0;
     return {
       planKey,
       subId: sub.id as string,
       remaining: Math.max(0, limit - used),
-      batchLimit: BATCH_LIMITS[planKey] ?? 1,
+      batchLimit: planLimits(planKey).batch,
     };
   }
 
-  // Free plan — count actual docs from this calendar month (limit 3)
+  // Free plan — count actual docs from this calendar month
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
@@ -111,8 +108,8 @@ async function resolvePlanLimits(
   return {
     planKey: "free",
     subId: null,
-    remaining: Math.max(0, 3 - (count ?? 0)),
-    batchLimit: BATCH_LIMITS.free,
+    remaining: Math.max(0, PLAN_LIMITS.free.monthly - (count ?? 0)),
+    batchLimit: PLAN_LIMITS.free.batch,
   };
 }
 
@@ -265,14 +262,20 @@ export async function uploadDocumentMultiAction(
   const modo = parseModo(formData.get("modo"));
   // Number of PDFs the user merged into this one document. Each one counts against
   // the monthly quota (so merging 3 PDFs consumes 3, not 1).
-  const archivos = Math.min(50, Math.max(1, parseInt((formData.get("count") as string) ?? "1", 10) || 1));
+  const archivos = Math.min(
+    PLAN_LIMITS.business.batch,
+    Math.max(1, parseInt((formData.get("count") as string) ?? "1", 10) || 1)
+  );
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`${getPrefix(locale)}/login`);
 
   const admin = createAdminClient();
-  const { subId, remaining } = await resolvePlanLimits(admin, supabase, user.id);
+  const { subId, remaining, batchLimit } = await resolvePlanLimits(admin, supabase, user.id);
+  // Per-send cap (how many PDFs can be merged at once on this plan). Enforced
+  // server-side too — the client cap in NuevoForm is only a convenience.
+  if (archivos > batchLimit) return { errorKey: "files_limit_reached", success: false };
   if (remaining < archivos) return { errorKey: "plan_limit_reached", success: false };
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

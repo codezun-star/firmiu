@@ -87,14 +87,19 @@ export default function Pricing({ locale }: PricingProps) {
                   {isComingSoon ? (
                     <p className="text-sm text-[#9CA3AF] leading-relaxed">{t("coming_soon_desc")}</p>
                   ) : (
-                    <div className="flex items-baseline gap-1">
-                      <span className={`text-3xl font-bold ${isPro ? "text-white" : "text-[#111827]"}`}>
-                        ${t(`${key}.price`)}
-                      </span>
-                      <span className={`text-sm ${isPro ? "text-[#6a9abf]" : "text-[#9CA3AF]"}`}>
-                        {t("monthly")}
-                      </span>
-                    </div>
+                    <>
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-3xl font-bold ${isPro ? "text-white" : "text-[#111827]"}`}>
+                          ${t(`${key}.price`)}
+                        </span>
+                        <span className={`text-sm ${isPro ? "text-[#6a9abf]" : "text-[#9CA3AF]"}`}>
+                          {t("monthly")}
+                        </span>
+                      </div>
+                      <p className={`text-xs mt-2 leading-relaxed ${isPro ? "text-[#94b8d4]" : "text-[#9CA3AF]"}`}>
+                        {t(`${key}.desc`)}
+                      </p>
+                    </>
                   )}
                 </div>
 
@@ -137,8 +142,13 @@ export default function Pricing({ locale }: PricingProps) {
           })}
         </div>
 
+        {/* Aclaración del "PDF por envío" (la fusión cuenta cada PDF) */}
+        <p className="text-center text-xs text-[#9CA3AF] mt-5 max-w-2xl mx-auto leading-relaxed">
+          {t("per_send_note")}
+        </p>
+
         {/* ── Incluido en todos los planes ── */}
-        <div className="mt-10 bg-white rounded-2xl border-[0.5px] border-[#E5E7EB] p-6 sm:p-8">
+        <div className="mt-8 bg-white rounded-2xl border-[0.5px] border-[#E5E7EB] p-6 sm:p-8">
           <p className="text-center text-sm font-semibold text-[#374151] mb-5">
             {t("included_title")}
           </p>
@@ -147,10 +157,15 @@ export default function Pricing({ locale }: PricingProps) {
               "included_multisigner",
               "included_upload",
               "included_certificate",
+              "included_order",
+              "included_multifield",
               "included_legal",
               "included_ip",
               "included_datetime",
+              "included_contacts",
               "included_pdf",
+              "included_bilingual",
+              "included_noinstall",
             ] as const).map((key) => (
               <div key={key} className="flex items-center gap-2.5">
                 <svg
