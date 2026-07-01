@@ -12,7 +12,7 @@ SaaS de firma digital de documentos orientado a Latinoamérica. Dirigido a conta
 
 > Todos los documentos usan la tabla `firmantes` (multi-firmante), incluso con un solo firmante. El flujo legacy de un solo firmante (tabla `firmas`) **fue eliminado** (migración 013): se borró la tabla y todo su código (`signLegacy`, `uploadDocumentAction`, `resendSigningEmailAction`, `updateDocumentEmailAction`, `addSignaturePage`).
 
-Dominio: **firmiu.com** · Deploy: **Vercel** (pendiente) · Base de datos: **Supabase**
+Dominio: **firmiu.com** · Deploy: **Vercel** (EN PRODUCCIÓN) · Base de datos: **Supabase**
 
 ---
 
@@ -30,7 +30,7 @@ Dominio: **firmiu.com** · Deploy: **Vercel** (pendiente) · Base de datos: **Su
 | Canvas de firma | react-signature-canvas | ✅ |
 | Toasts | Sistema propio por eventos (`toast.ts` + `Toaster.tsx`) | ✅ |
 | Pagos | Paddle (`@paddle/paddle-js`) | ✅ Checkout + webhook + cancelación implementados |
-| Deploy | Vercel | ⏳ No configurado |
+| Deploy | Vercel | ✅ En producción |
 | Lenguaje | TypeScript strict | ✅ |
 
 ---
@@ -105,6 +105,7 @@ firmiu/
 │   │   └── [locale]/
 │   │       ├── layout.tsx         # Locale layout (html lang + NextIntlClientProvider + Toaster)
 │   │       ├── page.tsx           # Landing con generateMetadata + JSON-LD + FAQ
+│   │       ├── precios/page.tsx   # Página de precios dedicada: PricingCards + PricingTable + contacto "más volumen"
 │   │       ├── login/
 │   │       │   ├── page.tsx
 │   │       │   └── LoginForm.tsx
@@ -144,6 +145,7 @@ firmiu/
 │   │   ├── SubmitButton.tsx
 │   │   ├── DownloadSignedButton.tsx      # Props: token, ctaLabel, loadingLabel, hintLabel?, expiredLabel
 │   │   ├── PendingPlanChecker.tsx        # Client silent: limpia cookie/localStorage si plan activo
+│   │   ├── Analytics.tsx                 # Client: gatea Google Analytics — NO carga en /firmar ni /dashboard (token no va a GA)
 │   │   ├── Toaster.tsx
 │   │   ├── SuccessModal.tsx
 │   │   └── landing/
@@ -151,13 +153,16 @@ firmiu/
 │   │       ├── HowItWorks.tsx
 │   │       ├── Features.tsx
 │   │       ├── InContext.tsx
-│   │       ├── Pricing.tsx               # Escribe cookie firmiu_pending_plan antes de /register
+│   │       ├── Pricing.tsx               # Sección landing: <PricingCards> (resumen) + enlace "comparar" a /precios
+│   │       ├── PricingCards.tsx          # Cards de planes (compartido landing + /precios); escribe firmiu_pending_plan; Business oculto
+│   │       ├── PricingTable.tsx          # Tabla comparativa función×plan (flag SHOW_BUSINESS)
 │   │       ├── Testimonials.tsx
 │   │       ├── FAQ.tsx                   # <details>/<summary> — indexable sin JS
 │   │       └── CtaBanner.tsx
 │   ├── lib/
 │   │   ├── toast.ts
 │   │   ├── paddle.ts                     # getPaddle(), openCheckout(); lee NEXT_PUBLIC_PADDLE_ENV
+│   │   ├── plans.ts                      # ⭐ FUENTE DE VERDAD de límites por plan (monthly, batch=PDF/envío, reminders)
 │   │   ├── security.ts                   # escapeHtml, isValidEmail, isValidUUID, isValidPassword, isValidVerificationCode, sanitizeText, sanitizeRedirectPath
 │   │   └── supabase/
 │   │       ├── client.ts
@@ -223,7 +228,8 @@ home.testimonials.*      → testimonios
 home.in_context.*        → estadísticas
 home.cta_banner.*        → banner final
 home.features.*          → sección visual upload/sign/download
-home.pricing.*           → precios y planes (incluye features arrays de cada plan)
+home.pricing.*           → precios y planes (features arrays, desc por plan, per_send_note, compare_all, included_* expandido)
+pricing_page.*           → página /precios (meta, título, tabla comparativa: groups/rows/values, contacto "más volumen")
 home.faq.*               → FAQ (title, subtitle, q1-q8, a1-a8)
 auth.errors.*            → mensajes de error
 auth.register.*          → formulario de registro (+ meta, placeholders)
@@ -237,7 +243,7 @@ sign.*                   → página pública de firma (incluye already_signed_*
 sign_success.*           → página post-firma (incluye download_loading)
 contacts_page.*          → módulo de contactos (incluye hide_confirm, hide, pagination.*, placeholders)
 firmas_page.*            → módulo de firmas (incluye cancel, hide, hide_confirm, pagination.*)
-settings.*               → módulo de cuenta/configuración (incluye planes, cancel_sub_*, delete_*)
+settings.*               → módulo de cuenta/configuración (page_title/subtitle, upgrade compacto, cancel_sub_*, delete_*)
 pagination.*             → previous, next, page_of, showing
 terms.*                  → términos de servicio (s1..s13)
 privacy.*                → política de privacidad (s1..s10)
@@ -280,9 +286,11 @@ pending_plan.*           → loader de suscripción pendiente
   arma su mapeo price→plan desde esas MISMAS vars (`buildPricePlan`), NO hardcodea
   IDs — antes los tenía hardcodeados y NO coincidían con el checkout, registrando
   todo como "starter". Si un price ID no se reconoce, loguea un error.
-- Planes y límites mensuales (webhook los registra en tabla `suscripciones`):
-  - Free (sin suscripción): 3 docs/mes
-  - Starter: 30 docs/mes · Pro: 100 docs/mes · Business: ilimitado (999999)
+- **Límites por plan → `src/lib/plans.ts` (FUENTE DE VERDAD única).** La usan webhook (mensual), `documents.ts` (mensual + PDF/envío), `nuevo/page.tsx` y `cron/recordatorios` (`REMINDER_PLANS`). NO hardcodear límites en otro lado.
+  - Docs/mes: Free **3** · Starter **30** · Pro **60** · Business ∞ (999999, **oculto en UI**)
+  - PDF por envío (fusión): Free **1** · Starter **5** · Pro **10** · Business **20**
+  - Recordatorios 48h: TODOS los planes de pago (Starter/Pro/Business); Free NO
+- El webhook lee `PLAN_LIMITS[plan].monthly` para `limite_documentos` (ya no hardcodea 30/100/999999).
 - Webhook: verifica firma HMAC-SHA256 (`crypto.timingSafeEqual`). En producción
   **falla cerrado** si falta `PADDLE_WEBHOOK_SECRET` (no procesa sin firma).
 - Intenta log en tabla `webhook_logs` (no-fatal si tabla no existe)
@@ -370,7 +378,7 @@ Wizard de 3 pasos (Documento → Posicionar → Firmantes). Usa `uploadDocumentM
 
 **`/dashboard/firmas`** — historial de firmas con audit trail + timezone `America/Tegucigalda`
 
-**`/dashboard/cuenta`** — perfil, contraseña, plan actual, cancelar suscripción (2 pasos), eliminar cuenta (2 pasos + confirmación escrita)
+**`/dashboard/cuenta`** — rediseñado (NO centrado, `max-w-5xl` a la izquierda): Perfil + Contraseña en 2 columnas; card Plan (uso real + ciclo de facturación + cancelar) con **módulo compacto de mejora** (solo planes superiores al actual + enlace "comparar todos" a `/precios` + contacto `codezun@gmail.com` si ya está en el tope); Zona de riesgo. **Ya NO tiene la grilla de 4 planes de marketing** (vive en `/precios`)
 
 ### ✅ SEO agresivo — todas las páginas públicas
 - Landing: JSON-LD (Organization + WebSite + SoftwareApplication + FAQPage), hreflang, OG, Twitter Card
@@ -380,7 +388,7 @@ Wizard de 3 pasos (Documento → Posicionar → Firmantes). Usa `uploadDocumentM
 - `metadataBase`: `https://firmiu.com`
 - `FAQ.tsx`: `<details>/<summary>` — indexable sin JS
 
-### ✅ Estado de páginas — Build: 321 páginas, 0 errores
+### ✅ Estado de páginas — Build: 323 páginas, 0 errores
 (El salto de páginas viene del SEO programático: ~44 países + ~62 profesiones + ~34 artículos de blog × ES/EN. Ver `lib/countries.ts`, `lib/usecases.ts`, `lib/blog.ts`.)
 
 | Ruta | Estado |
@@ -396,6 +404,7 @@ Wizard de 3 pasos (Documento → Posicionar → Firmantes). Usa `uploadDocumentM
 | `/terminos` | 13 secciones + SEO |
 | `/privacidad` | 10 secciones + SEO |
 | `/reembolsos` | 4 secciones + SEO |
+| `/precios` | Cards + tabla comparativa + contacto "más volumen" + SEO |
 | `/dashboard` | Estadísticas reales |
 | `/dashboard/nuevo` | Funcional — upload + límites de plan + email + SuccessModal |
 | `/dashboard/documentos` | Funcional — paginación + soft delete + signed URLs |
@@ -500,7 +509,7 @@ create table suscripciones (
   -- 'canceled': webhook subscription.canceled de Paddle lo setea; baja a free
   -- cuenta/page.tsx trata 'active' y 'canceling' igual (muestra plan y límite pagados)
   documentos_mes         integer not null default 0,       -- contador mensual (cron lo resetea)
-  limite_documentos      integer not null default 3,       -- Free=3, Starter=30, Pro=100, Business=999999
+  limite_documentos      integer not null default 3,       -- Free=3, Starter=30, Pro=60, Business=999999 (ver lib/plans.ts)
   periodo_inicio         timestamptz,
   periodo_fin            timestamptz,
   creado_en              timestamptz not null default now(),
@@ -606,7 +615,7 @@ npm run lint     # ESLint
 - **Banner de mantenimiento (no bloqueante, default recomendado)**: `MaintenanceBanner.tsx` (client), barra naranja descartable EN EL FLUJO del contenido (no fixed, para no chocar con el header/sidebar fijos del dashboard ni el navbar sticky público). Se monta DOS veces: en `[locale]/layout.tsx` (`variant="global"`, oculto en `/dashboard`) y dentro del `<main>` del dashboard (`variant="dashboard"`). Toggle con `NEXT_PUBLIC_MAINTENANCE_BANNER` (inlined → redeploy): `"true"`=mensaje i18n `banner.message`; cualquier otro texto=ese literal. Descartar guarda en `sessionStorage` (re-aparece si cambias el mensaje). Úsalo para el 95% de los cambios; el 503 solo para lo rompedor.
 - **Variable de entorno Supabase**: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (nunca `ANON_KEY`).
 - **Prefijo de locale**: español sin prefijo; inglés con `/en`. Helper: `const prefix = locale === "es" ? "" : "/en"`.
-- **`addSignaturePage()`** en `sign.ts`: agrega página nueva con las mismas dimensiones que la primera página del PDF original. NUNCA dibujar sobre páginas existentes.
+- **`addCertificatePage()`** en `sign.ts`: agrega UNA página de certificado con las mismas dimensiones que la primera página del original. NUNCA dibujar sobre páginas existentes. (La antigua `addSignaturePage` legacy fue eliminada.)
 - **`signDocumentAction`**: retorna `SignResult { errorKey, success?, redirectTo? }`. NO llama a `redirect()` directamente.
 - **Soft delete**: SIEMPRE filtrar con `.eq("oculto", false)` en queries del dashboard. Las acciones hide* usan `update({ oculto: true })` + `revalidatePath`.
 - **Paginación**: PAGE_SIZE = 10. Parámetro URL `?page=N`. Query con `.range(from, to)` y `{ count: 'exact' }`. Server component lee `searchParams.page`.
@@ -618,11 +627,11 @@ npm run lint     # ESLint
 - **deleteAccountAction**: usa `admin.auth.admin.deleteUser(user.id)` que hace cascade en toda la DB. El soft-delete previo de documentos es intencional (señala intención de preservar) pero el cascade los elimina igualmente.
 - **`DownloadSignedButton`**: requiere prop `loadingLabel` (obligatoria). Pasarla desde el componente padre usando `t("sign_success.download_loading")` o `t("already_signed_loading")` según contexto.
 - **SEO en páginas nuevas**: toda página pública debe tener `generateMetadata` con title, description, keywords (desde i18n), canonical, hreflang languages (es/en), OG, Twitter, robots.
-- **Build**: `npm run build` debe pasar sin errores. Build actual genera 321 páginas.
+- **Build**: `npm run build` debe pasar sin errores. Build actual genera 323 páginas.
 - **`NEXT_PUBLIC_APP_URL`**: usado en metadata SEO (canonical, OG, sitemap, links de email). En producción: `https://firmiu.com`.
 - **Business plan features próximamente**: "API pública + webhooks" y "Hasta 5 usuarios" están marcadas como "(Próximamente)" en `home.pricing.business.features` y `settings.business_f2/f4`. No implementar sin antes acordar el diseño.
-- **Plan Business deshabilitado (NO se vende por ahora)**: tanto el landing (`Pricing.tsx`) como `/dashboard/cuenta` (`SettingsClient.tsx`) muestran Business como **"Próximamente"** (`coming_soon`/`coming_soon_desc`) — sin precio, sin lista de features y sin botón de compra (`isComingSoon = key === "business"`). La lógica de plan en backend/webhook NO se tocó (si alguien tuviera Business, sigue funcionando). Para reactivar la venta: quitar el guard `isComingSoon` en ambos componentes.
-- **Varios documentos = PDF UNIFICADO (no lote independiente)**: si el usuario sube varios PDF, `NuevoForm` los **fusiona en el cliente** con pdf-lib (`mergeFiles`) en UN solo PDF al pasar al paso de posicionar. A partir de ahí es UN documento: una firma por firmante, UN correo, una descarga (con su certificado al final). Se envía con `uploadDocumentMultiAction` (1 doc). `maxBatch` (de `/dashboard/nuevo`, server) ahora = **máximo de PDF a fusionar** (free 1 → sin fusión); el documento cuenta como **1** contra el cupo mensual. `uploadDocumentsBatchAction` (lote de docs independientes) quedó **sin uso** por el wizard (existe pero no se llama).
+- **Plan Business OCULTO por completo (NO se muestra en ninguna parte)**: se quitó de las cards (`PricingCards.tsx` → `planKeys = ["free","starter","pro"]`), de la tabla comparativa (`PricingTable.tsx` → `const SHOW_BUSINESS = false`) y del JSON-LD del landing. El backend (webhook, `PLAN_LIMITS.business`) sigue **intacto** (si alguien tuviera Business, funciona). Para reactivar: agregar `"business"` a `planKeys` **y** poner `SHOW_BUSINESS = true`. En su lugar hay un modelo **"¿Necesitas más volumen?" → contacto a `codezun@gmail.com`** (panel en `/precios` y aviso en `/dashboard/cuenta` para usuarios ya en el plan tope).
+- **Varios documentos = PDF UNIFICADO (no lote independiente)**: si el usuario sube varios PDF, `NuevoForm` los **fusiona en el cliente** con pdf-lib (`mergeFiles`) en UN solo PDF al pasar al paso de posicionar. A partir de ahí es UN documento: una firma por firmante, UN correo, una descarga (con su certificado al final). Se envía con `uploadDocumentMultiAction` (1 doc). `maxBatch` = máx PDF a fusionar según plan (**Free 1 · Starter 5 · Pro 10 · Business 20**, de `lib/plans.ts`; free 1 → sin fusión). **Cada PDF fusionado cuenta 1 contra el cupo mensual** (anti-abuso): fusionar 3 consume 3, no 1 (`archivos` = `count` del form). El límite por envío se valida **server-side** en `uploadDocumentMultiAction` (`archivos > batchLimit → files_limit_reached`), no solo en el cliente. `uploadDocumentsBatchAction` (lote de docs independientes) quedó **sin uso** por el wizard.
 - **Varios lugares de firma por firmante (`campos` jsonb, migración 014)**: un firmante puede firmar en **varias zonas** del PDF unificado (ej. una por documento/página). `FirmanteLocal.posiciones: PosicionFirma[]`. En el envío, cada firmante manda `campos` (arreglo) + el campo primario (`campo_*` = primer campo, compatibilidad). `createOneDocument` guarda `campos` en un update **no-fatal** (si falta la migración 014, degrada a solo el primario). `signFirmante` lee `campos` de forma tolerante y **estampa la firma en TODOS** los campos; si está vacío, usa el primario. El firmante firma UNA vez.
 - **Orden de firma (`modo_firma`, migración 012)**: por documento, `'paralelo'` (default — todos reciben el correo de inmediato) o `'secuencial'` (solo se envía al firmante orden 1; al firmar, `signFirmante` envía al siguiente por orden). En secuencial, `signFirmante` bloquea con `not_your_turn` si alguien con `orden` menor no ha firmado, y la página `/firmar/[token]` muestra estado de **espera** (`waiting`) si abren antes de su turno. **Defensivo**: `modo_firma` se lee/escribe en queries SEPARADAS y tolerantes (no en el select central). Si la migración 012 no está aplicada, todo degrada a `'paralelo'` y nada se rompe — pero el modo secuencial no funciona hasta aplicarla.
 - **Tamaño del campo de firma**: `FIELD_W=0.20`, `FIELD_H=0.05` en `PdfPosicionador.tsx` (reducido para que el cuadro no se vea enorme con el preview ancho). El estampado (`drawSignatureOnPage`) escala a los `campo_*` guardados, así que ese único par de constantes define el tamaño en el documento.
@@ -641,6 +650,7 @@ npm run lint     # ESLint
 - **Migración 011 obligatoria**: `signFirmante` selecciona/escribe `firma_imagen` y `firma_timezone`. Si faltan, el guard `othersErr` aborta la firma. Aplicar 011 antes de desplegar.
 - **Concurrencia multi-firmante (pendiente)**: dos firmantes simultáneos descargan el mismo PDF base y suben al mismo path con `upsert:true` → puede perderse una firma. No resuelto; si se promueve multi-firmante en serio, añadir lock optimista por documento.
 - **Seguridad — integridad e identidad (SES)**: la firma es imagen + audit trail, NO criptográfica (no PAdES). Registros de integridad: el certificado muestra el SHA-256 del PDF **original** y, desde la migración 015, `documentos.hash_original` + `hash_firmado` (SHA-256 del PDF final) se guardan en la BD como prueba inmutable (`signFirmante`, update no-fatal al firmar el último). Para verificar un PDF presentado: comparar su SHA-256 contra `hash_firmado`. **IP del audit**: `getRequestIp` usa headers de plataforma (`x-vercel-forwarded-for`/`x-real-ip`) — NO confiar en `x-forwarded-for` crudo (falsificable). **Código de verificación**: `crypto.randomInt(1000,10000)` (no `Math.random`) + bloqueo a los 5 intentos. El código viaja en el mismo correo que el enlace (modelo SES: quien controla el correo, firma).
+- **Auditoría de seguridad (hecha y APLICADA)**: postura ≈7.5/10, sin agujeros críticos. Fixes ya implementados: (1) `documents.ts` ya **NO** loguea token ni correos de firmantes; (2) `Analytics.tsx` (client, `usePathname`) **gatea Google Analytics** — NO carga en `/firmar` ni `/dashboard` (antes el token de firma viajaba en la URL a Google); GA vive en ese componente, no inline en `[locale]/layout.tsx`; (3) los crons (`reset-docs`, `recordatorios`) **fallan cerrado** (`if (!secret || auth !== …)`) — `CRON_SECRET` está en Vercel; (4) `paddle.ts` ya no hace `console.log` de email/userId. Techos restantes (por diseño, NO fallos): firma **SES** (no PAdES), token-en-URL, sin rate-limiting/2FA/WAF — para cuando haya volumen.
 
 ---
 
